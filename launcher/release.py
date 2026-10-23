@@ -159,7 +159,7 @@ def main() -> int:
         with zipfile.ZipFile(source_zip, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
             archive.write(REPO / "LICENSE", "LICENSE")
             for path in sorted((rs / "host").rglob("*")):
-                if path.is_file() and path.suffix.lower() not in (".obj", ".o", ".exe", ".pdb", ".lib"):
+                if path.is_file() and "__pycache__" not in path.parts and path.suffix.lower() not in (".obj", ".o", ".exe", ".dll", ".pdb", ".lib", ".pyc", ".pyo"):
                     archive.write(path, "host/" + path.relative_to(rs / "host").as_posix())
             for name in ("build_host.py", "pair.py", "exercise.py", "dependencies.json"):
                 if (rs / name).is_file():
