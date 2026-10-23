@@ -168,6 +168,11 @@ def main() -> int:
                              "(search the sources for \"CoastLink\"). Build: python build_host.py --dll ssbu_game_r1.dll --out ssbu_native_rb.exe\n"
                              "(Zig, see build_host.py). GPL-3.0-or-later.\n")
         out["runtime_source"] = str(source_zip)
+        # Keep the matching source with a full ZIP shared directly with a friend,
+        # even before the separate source asset is published on GitHub.
+        with zipfile.ZipFile(full_zip, "a", zipfile.ZIP_STORED) as archive:
+            archive.write(source_zip, "CoastLink/runtime-source/" + source_zip.name)
+        out["full_bytes"] = full_zip.stat().st_size
     print(json.dumps(out, indent=2))
     return 0
 
