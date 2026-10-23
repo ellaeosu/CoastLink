@@ -1,4 +1,4 @@
-CoastLink 0.6.1
+CoastLink 0.6.2
 
 Double-click CoastLink.exe. That's it: no console or PowerShell windows.
 
@@ -16,7 +16,7 @@ NEW INSTALL
    done. This reduces preparation stalls; smooth matches still depend on both PCs.
 
 UPGRADING FROM 0.5.x (both PCs)
-Close Smash and the old launcher. Extract CoastLink-0.6.1.zip over your
+Close Smash and the old launcher. Extract CoastLink-0.6.2.zip over your
 existing CoastLink folder (say yes to replace files), then open CoastLink.exe.
 Your compiled game, settings, shader caches and saves stay. No game rebuild.
 The old .cmd and PowerShell launchers are removed after CoastLink.exe has

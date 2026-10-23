@@ -3,6 +3,7 @@ import { rust, call, on } from './bridge.js';
 import { esc, $, icons, status, toast, modal, pct, errorText } from './ui.js';
 import * as nav from './nav.js';
 import { app } from './state.js';
+import { installSounds } from './sound.js';
 import './screens/play.js';
 import './screens/online.js';
 import './screens/controllers.js';
@@ -182,6 +183,7 @@ async function waitForBackend() {
 
 async function boot() {
   nav.installNavigation();
+  installSounds();
   const info = await rust('app_info');
   app.info = info;
   $('#brand-version').textContent = `${info.version} rollback`;

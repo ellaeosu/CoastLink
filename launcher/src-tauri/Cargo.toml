@@ -1,6 +1,6 @@
 [package]
 name = "coastlink"
-version = "0.6.1"
+version = "0.6.2"
 description = "CoastLink: rollback netplay launcher for OpenSmash-Ultimate"
 authors = ["CoastLink contributors"]
 license = "GPL-3.0-or-later"

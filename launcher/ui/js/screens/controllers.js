@@ -3,7 +3,7 @@
 import { call, on } from '../bridge.js';
 import { esc, icons, status, toast, modal, errorText } from '../ui.js';
 import { register, suspend } from '../nav.js';
-import { controllerDiagram, paintController, pressedSources, bindingPressed } from '../controller_view.js';
+import { controllerDiagram, paintController, pressedSources, bindingPressed, modelName } from '../controller_view.js';
 
 const LEFT = [['L', 'Shield'], ['ZL', 'Grab'], ['MINUS', 'Minus'], ['UP', 'Taunt up'], ['DOWN', 'Taunt down'], ['LEFT', 'Taunt left'], ['RIGHT', 'Taunt right'], ['STICK_L', 'Stick press']];
 const RIGHT = [['A', 'Attack'], ['B', 'Special'], ['X', 'Jump'], ['Y', 'Jump'], ['R', 'Shield'], ['ZR', 'Grab'], ['PLUS', 'Pause'], ['STICK_R', 'Stick press']];
@@ -162,8 +162,8 @@ register({
           ${slider('dz', 'Deadzone', dz, 0, 0.95, 0.01, (v) => (+v).toFixed(2))}${slider('oz', 'Range (full tilt at)', oz, 0.05, 1, 0.01, (v) => Math.round(v * 100) + '%')}${slider('trigger', 'Trigger threshold', +(devVal(d.guid, 'trigger_threshold') ?? 0.33), 0, 1, 0.01, (v) => Math.round(v * 100) + '%')}<div class="divider"></div>` : ''}
           ${[...LEFT, ...(!d ? KEY_LEFT : [])].map(([c, a]) => bindRow(c, a, d)).join('')}</section>
         <section class="card controller-live" aria-label="Live test"><div class="row" style="justify-content:space-between"><span class="label">Live preview</span><span id="conn" class="small">${d ? status(s.devices.some((x) => x.guid === d.guid) ? 'ok' : 'warn', s.devices.some((x) => x.guid === d.guid) ? 'Connected' : 'Not connected') : status('ok', 'Keyboard')}</span></div>
-          <div class="controller-identity"><h2>${d ? esc(d.kind || 'Controller') : 'Keyboard'}</h2><span class="small muted">${d ? esc(d.name) : 'Your bindings, at a glance'}</span></div>
-          <div class="controller-stage">${controllerDiagram(d?.kind, !d, d?.gamepad === false)}</div>
+          <div class="controller-identity"><h2>${d ? esc(modelName(d)) : 'Keyboard'}</h2><span class="small muted">${d ? esc(d.name) : 'Your bindings, at a glance'}</span></div>
+          <div class="controller-stage">${controllerDiagram(d, !d, d?.gamepad === false)}</div>
           <div id="pressed" class="controller-pressed"><span class="small faint">Press a button to test</span></div>
           <div class="controller-preview-note">Preview only · Controller input never operates the launcher.</div>
           ${d ? `<div class="divider"></div><label class="check">Rumble<input type="checkbox" id="rum" ${rum ? 'checked' : ''}></label>

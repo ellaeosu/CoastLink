@@ -75,6 +75,8 @@ class _Sdl:
         lib.SDL_InitSubSystem.argtypes = [ctypes.c_uint32]; lib.SDL_InitSubSystem.restype = ctypes.c_bool
         lib.SDL_GetAudioPlaybackDevices.argtypes = [ctypes.POINTER(ctypes.c_int)]; lib.SDL_GetAudioPlaybackDevices.restype = ctypes.POINTER(ctypes.c_uint32)
         lib.SDL_GetAudioDeviceName.argtypes = [ctypes.c_uint32]; lib.SDL_GetAudioDeviceName.restype = ctypes.c_char_p
+        # GameCube adapters in PC mode are read the Windows way, as the game does (nnpad_sdl.c gamecube_pc = windows)
+        lib.SDL_SetHint(b"SDL_HIDAPI_IGNORE_DEVICES", b"0x0079/0x1843,0x0079/0x1844,0x0079/0x1846")
         lib.SDL_SetHint(b"SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", b"1")    # (the game window, not ours, has the focus while testing)
         if not lib.SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD):
             raise OSError("SDL could not start: " + (lib.SDL_GetError() or b"").decode(errors="replace"))
@@ -129,6 +131,22 @@ def type_key(gamepad_type: int, gamepad: bool = True) -> str:
              7: "switch", 8: "switch", 9: "switch", 10: "switch", 11: "gamecube"}).get(gamepad_type, "generic")
 
 
+GAMECUBE_IDS = {(0x0079, 0x1843), (0x0079, 0x1844), (0x0079, 0x1846), (0x057E, 0x0337)}   # Mayflash PC mode, Nintendo WUP-028
+XBOX_SERIES_IDS = {0x0B12, 0x0B13, 0x0B20, 0x0B21, 0x0B22}                                    # Microsoft Xbox Series X|S pads
+
+
+def model_key(gamepad_type: int, vendor: int, product: int, name: str, gamepad: bool = True) -> str:
+    """Which controller to draw in the app's live preview (the SDL type, refined by the USB vendor/product ids)."""
+    if not gamepad:
+        return "joystick"
+    if (vendor, product) in GAMECUBE_IDS or gamepad_type == 11 or "gamecube" in name.lower():
+        return "gamecube"
+    if gamepad_type == 3:
+        return "xboxseries" if vendor == 0x045E and product in XBOX_SERIES_IDS else "xboxone"
+    return {2: "xbox360", 4: "ps3", 5: "ps4", 6: "ps5", 7: "switchpro", 8: "joyconl", 9: "joyconr",
+            10: "joyconpair"}.get(gamepad_type, "generic")
+
+
 _activated_adapter_ports: dict[int, int] = {}  # SDL instance IDs; only touched on the SDL thread.
 
 
@@ -155,6 +173,7 @@ def _list(lib) -> list[dict]:
                     lib.SDL_CloseJoystick(joystick)
         rows.append({"id": int(jid), "guid": _guid(lib, jid), "name": name, "gamepad": bool(pad),
                      "kind": KINDS.get(kind, "Controller") if pad else "Joystick", "type_key": type_key(kind, bool(pad)),
+                     "model": model_key(kind, vendor, product, name, bool(pad)), "vendor": vendor, "product": product,
                      "waiting_for_input": pc_adapter and int(jid) not in _activated_adapter_ports,
                      "activation_order": _activated_adapter_ports.get(int(jid), 0)})
     if ids:
@@ -338,16 +357,20 @@ def gamecube_adapters() -> list[dict]:
             ident = buf.value.upper()
             service = ctypes.create_unicode_buffer(128)
             setup.SetupDiGetDeviceRegistryPropertyW(handle, ctypes.byref(info), SPDRP_SERVICE, None, service, ctypes.sizeof(service), None)
+            winusb = service.value.lower() == "winusb"
             if "VID_057E&PID_0337" in ident:
-                winusb = service.value.lower() == "winusb"
                 found.append({"mode": "wiiu", "driver": service.value or "none", "usable": winusb,
-                              "advice": "GameCube adapter in Wii U / Switch mode with WinUSB: ready." if winusb else
-                              "GameCube adapter in Wii U / Switch mode without the WinUSB driver: flip the adapter's switch to PC mode (easiest), "
-                              "or install WinUSB for it with Zadig."})
+                              "advice": "GameCube adapter in Wii U mode with WinUSB: ready (read directly, like Slippi). Each port is that player."
+                              if winusb else
+                              f"GameCube adapter in Wii U mode with the \"{service.value or 'no'}\" driver, not WinUSB: flip the switch to PC mode, "
+                              "or install WinUSB for \"WUP-028\" with Zadig."})
             elif "VID_0079&PID_184" in ident and any(f"PID_{p}" in ident for p in ("1843", "1844", "1846")):
-                found.append({"mode": "pc", "driver": service.value or "HID", "usable": True,
-                              "advice": "GameCube adapter in PC mode: press a button on a controller to give it a player slot "
-                              "(empty ports are skipped)."})
+                found.append({"mode": "pc", "driver": service.value or "HID", "usable": not winusb,
+                              "advice": "GameCube adapter in PC mode has the WinUSB driver, so Windows can't read it as a controller. "
+                              "Flip the switch to Wii U (and give WinUSB to \"WUP-028\" in Zadig if it isn't already), "
+                              "or uninstall this device's driver in Device Manager to use PC mode."
+                              if winusb else
+                              "GameCube adapter in PC mode: press a button on a controller to give it a player slot (empty ports are skipped)."})
     finally:
         setup.SetupDiDestroyDeviceInfoList(handle)
     return found

@@ -1,7 +1,7 @@
 {
-  "runtime_commit": "169b467a653ab239faa7310e990f369442cbae14+coastlink-rb3",
+  "runtime_commit": "169b467a653ab239faa7310e990f369442cbae14+coastlink-rb4",
   "upstream": "https://github.com/Denkishi/ssbu-recomp/tree/169b467a653ab239faa7310e990f369442cbae14",
-  "source_archive": "CoastLink-Runtime-rb3-Source.zip (complete corresponding source of ssbu_native_rb.exe)",
+  "source_archive": "CoastLink-Runtime-rb4-Source.zip (complete corresponding source of ssbu_native_rb.exe)",
   "game_dll": "unchanged: imports the installed ssbu_game_r1.dll; no game rebuild",
   "changes": [
     "Upstream 169b467: learned-page snapshot state, late-base desync fix, cheaper rollback ticks, lobby rollback matchmaking",
@@ -16,7 +16,9 @@
     "0.6.0: online, GameCube controllers are presented as Pro Controllers on both PCs (one controller type for both games)",
     "0.6.0: the lobby build id carries the CoastLink version; the game logs VERSION MISMATCH when someone with the same lobby code runs another version",
     "0.6.0: SSBU_RB_NET_DELAY_PLUS (the app's '1 frame higher' input delay)",
-    "0.6.0: graphics.ini audio_device (a waveOut output by name) and mute_background; volume and mute_background apply while the game runs"
+    "0.6.0: graphics.ini audio_device (a waveOut output by name) and mute_background; volume and mute_background apply while the game runs",
+    "0.6.2: GameCube adapters in PC mode are read through Windows' own controller support with SDL's GameCube layout (SDL's adapter driver dropped every report that was not 9 or 10 bytes long: with some Mayflash firmware no input arrived); a port SDL has no layout for gets the same one; controllers.ini gamecube_pc = sdl keeps the old way",
+    "0.6.2: the WinUSB adapter (Wii U mode) is also found through DeviceInterfaceGUID and through the USB device interface; the log names the driver it found and says when WinUSB was installed on the PC-mode device instead"
   ],
-  "tested": "Controller self-test 65/65 (exercise.py pad). The rollback loop harness (exercise.py loop) stalls at match frame 2 with this build and with the 0.5.3 build alike (a harness problem, not a change here)"
+  "tested": "Controller self-test 68/68 (exercise.py pad), including a PC-mode adapter port without an SDL mapping. Not tested on a physical Mayflash adapter."
 }

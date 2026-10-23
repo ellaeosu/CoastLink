@@ -1,3 +1,15 @@
+# 0.6.2
+
+- The live controller preview draws the controller you plugged in: Xbox 360, Xbox One,
+  Xbox Series, DualShock 3, DualShock 4, DualSense, Switch Pro, Joy-Con (pair or single)
+  and GameCube (including Mayflash adapters), each with its own shape, layout and
+  button colours. Detected from the SDL controller type and USB vendor/product ids.
+- Menu sounds for moving, buttons, screens, toggles, sliders, dialogs and results,
+  generated in the app (no sound files). Audio > Menu sounds turns them off or sets
+  their volume. The game's sound is not affected.
+
+The rb3 gameplay runtime is unchanged. No game rebuild.
+
 # 0.6.1
 
 - Live controller diagrams for Xbox, PlayStation, Switch, GameCube and keyboard;

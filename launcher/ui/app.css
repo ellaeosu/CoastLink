@@ -156,12 +156,28 @@ input[type="range"] { width: 100%; height: 28px; accent-color: var(--red); }
 .pad-svg { width: 100%; overflow: visible; }
 .pad-shell { fill: #222226; stroke: #64646c; stroke-width: 2; }
 .pad-seam { fill: none; stroke: #38383f; stroke-width: 2; }
-.pad-control > circle, .pad-control > rect { fill: #34343c; stroke: #93939c; stroke-width: 1.4; transition: fill 80ms, stroke 80ms; }
+.pad-control > circle, .pad-control > rect, .pad-control > ellipse, .pad-control > path:not(.pad-arrow) { fill: #34343c; stroke: #93939c; stroke-width: 1.4; transition: fill 80ms, stroke 80ms; }
 .pad-control > text { fill: #eeeef2; font: 600 15px var(--body); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
-.pad-shoulder > text { font-size: 13px; }.pad-menu > text { font-size: 10px; }
+.pad-shoulder > text { font-size: 13px; }.pad-menu > text { font-size: 9px; }
 .pad-dpad > text { font-size: 12px; }
-.pad-svg .pad-control.lit > circle, .pad-svg .pad-control.lit > rect { fill: var(--red); stroke: #ffb1b8; }
-.pad-svg .pad-control.lit > text { fill: #000; }
+.pad-svg .pad-control.lit > circle, .pad-svg .pad-control.lit > rect, .pad-svg .pad-control.lit > ellipse, .pad-svg .pad-control.lit > path:not(.pad-arrow) { fill: var(--red); stroke: #ffb1b8; }
+.pad-svg .pad-control.lit > text, .pad-svg .pad-control.lit > .pad-arrow { fill: #000; }
+/* per-model details (controller_view.js): printed colours of the real pads; a pressed part is always the app's red */
+.pad-arrow { fill: #c9c9d0; stroke: none; }
+.pad-inset { fill: #34343c; }
+.pad-ring { fill: none; stroke: #93939c; stroke-width: 1.2; }
+.pad-control.lit > .pad-ring { stroke: #000; }
+.stick-cap { fill: none; stroke: #5c5c66; stroke-width: 1.2; }
+.pad-touchpad > rect { fill: #2a2a30; }
+.pad-lightbar { stroke: var(--blue); stroke-width: 3; stroke-linecap: round; opacity: 0.8; }
+.face-green > text { fill: #5fd068; } .face-red > text { fill: #ff6b63; } .face-blue > text { fill: #5aa9ff; } .face-yellow > text { fill: #ffd23f; }
+.face-psblue > text { fill: #8ab8ff; } .face-psred > text { fill: #ff7a7a; } .face-pspink > text { fill: #f39ae0; } .face-psteal > text { fill: #5fd8bf; }
+.gc-shell { fill: #262230; stroke: #6d6680; }
+.gc-a > circle { fill: #1f8a4c; stroke: #59c98a; } .gc-b > circle { fill: #b3303b; stroke: #ff7a85; }
+.gc-xy > ellipse { fill: #4a4a54; stroke: #a5a5ae; }
+.gc-cstick .stick-knob { fill: #d9b31a; stroke: #ffe066; } .gc-cstick .stick-cap { stroke: #a88a12; }
+.gc-z > rect { fill: #5b46a8; stroke: #9c88ff; } .gc-trigger > rect { fill: #3a3a44; }
+.pad-svg .pad-control.lit .stick-knob { fill: var(--red); stroke: #ffb1b8; }
 .stick-well { fill: #111114; stroke: #676771; stroke-width: 1.5; }
 .stick-knob { fill: #41414b; stroke: #a0a0aa; stroke-width: 1.5; }
 .stick-cross { stroke: #52525c; stroke-width: 1; }

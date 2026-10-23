@@ -3,6 +3,7 @@
 import { call } from '../bridge.js';
 import { esc, icons, toast, errorText } from '../ui.js';
 import { register } from '../nav.js';
+import { soundSettings, setSoundSettings, play } from '../sound.js';
 
 let saveQueue = Promise.resolve();
 
@@ -17,6 +18,7 @@ register({
     const g = s.graphics;
     const vol = g.volume === 'auto' ? 100 : +g.volume;
     const selectedDevice = g.audio_device || 'default';
+    const ui = soundSettings();
     const names = [...new Set((devices || []).map((d) => d.name).filter((name) => typeof name === 'string' && name))];
     if (selectedDevice !== 'default' && !names.includes(selectedDevice)) names.push(selectedDevice);
     root.innerHTML = `<header class="page-head"><div><h1 style="font-size:34px">Audio</h1><p>Volume changes apply right away, even mid-match.</p></div>
@@ -32,7 +34,13 @@ register({
           ${names.map((n) => `<option value="${esc(n)}" ${n === selectedDevice ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
           <span class="small faint">The game device applies next launch. The test sound uses Windows output.${devices ? '' : ' Device list unavailable; your saved choice is kept.'}</span></div>
         <label class="check" style="min-height:48px">Mute when the game is in the background<input type="checkbox" id="mute" ${g.mute_background === 'on' ? 'checked' : ''}></label>
+        <div class="divider"></div>
+        <label class="check" style="min-height:48px">Menu sounds<input type="checkbox" id="ui-snd" ${ui.on ? 'checked' : ''}></label>
+        <div class="slider"><div class="top"><label for="ui-snd-vol">Menu sound volume</label><span class="mono" id="ui-snd-vol-v">${Math.round(ui.volume * 100)}</span></div><input id="ui-snd-vol" type="range" min="0" max="100" value="${Math.round(ui.volume * 100)}"></div>
+        <span class="small faint">The app's own clicks and blips. Applies right away; the game's sound is not affected.</span>
       </section></div>`;
+    root.querySelector('#ui-snd').addEventListener('change', (e) => { setSoundSettings({ on: e.target.checked }); if (e.target.checked) play('toggleOn'); });
+    root.querySelector('#ui-snd-vol').addEventListener('input', (e) => { root.querySelector('#ui-snd-vol-v').textContent = e.target.value; setSoundSettings({ volume: +e.target.value / 100 }); });
     const v = root.querySelector('#vol');
     const state = root.querySelector('#audio-state'), output = root.querySelector('#out');
     let timer = null, revision = 0, savedDevice = selectedDevice;
