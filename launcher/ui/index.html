@@ -1,0 +1,28 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoastLink</title>
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <nav id="side" aria-label="Main">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M3 15c3-4 6-4 9 0s6 4 9 0"/><path d="M3 9c3-4 6-4 9 0s6 4 9 0"/></svg></div>
+      <div class="col" style="gap:0"><span class="brand-name">CoastLink</span><span class="brand-sub" id="brand-version">rollback</span></div>
+    </div>
+    <div id="nav-items"></div>
+    <div class="side-status" id="side-status" aria-live="polite">
+      <span class="status ok" id="side-status-line">Starting…</span>
+      <span class="small faint" id="side-status-detail"></span>
+    </div>
+  </nav>
+  <main id="view" tabindex="-1"></main>
+</div>
+<div id="toast" aria-live="polite"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

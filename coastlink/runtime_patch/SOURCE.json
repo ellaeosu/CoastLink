@@ -1,0 +1,22 @@
+{
+  "runtime_commit": "169b467a653ab239faa7310e990f369442cbae14+coastlink-rb3",
+  "upstream": "https://github.com/Denkishi/ssbu-recomp/tree/169b467a653ab239faa7310e990f369442cbae14",
+  "source_archive": "CoastLink-Runtime-rb3-Source.zip (complete corresponding source of ssbu_native_rb.exe)",
+  "game_dll": "unchanged: imports the installed ssbu_game_r1.dll; no game rebuild",
+  "changes": [
+    "Upstream 169b467: learned-page snapshot state, late-base desync fix, cheaper rollback ticks, lobby rollback matchmaking",
+    "Rollback inputs travel over a direct, token-checked UDP path between the two PCs when one validates (Shared lobby mode); the lobby relay stays as the fallback",
+    "Input delay from the measured round trip: covers the one-way trip + 4 ms (2..8 frames; 3 on a ~80-90 ms direct path), rollback only for jitter",
+    "The wait for each 60 Hz tick takes the other player's inputs as they arrive instead of after the next frame",
+    "This PC's sticks quantized to 8-bit steps with hysteresis before they are sent, so a held stick's noise no longer forces rollbacks",
+    "0.5.1: online, port 1 is this PC's player whatever port its controller is on (0.5.0 deadlocked at the match start when the pad was not on port 1)",
+    "0.5.2: the handshake gives player i controller slot i, no network flag and the default controls on both PCs (upstream's room-match fix); at most 2 frames past the other player's newest pad (+ SSBU_RB_NET_LATE), then wait; the other game's pads stopped for 8 s = it left: go on",
+    "0.5.3: a real pass's capture is skipped when the other player's pad of the next frame is already here (no rollback can load it; about 2 of 3 frames); the last re-run pass after a rollback runs fully (the lite one skipped lighting/camera/effects the next frame shows: fighters in wrong colours)",
+    "0.6.0: GameCube adapters in PC mode (Mayflash 0079:1843/1844/1846): an empty port no longer takes a player slot; a controller gets its slot when it first presses a button",
+    "0.6.0: online, GameCube controllers are presented as Pro Controllers on both PCs (one controller type for both games)",
+    "0.6.0: the lobby build id carries the CoastLink version; the game logs VERSION MISMATCH when someone with the same lobby code runs another version",
+    "0.6.0: SSBU_RB_NET_DELAY_PLUS (the app's '1 frame higher' input delay)",
+    "0.6.0: graphics.ini audio_device (a waveOut output by name) and mute_background; volume and mute_background apply while the game runs"
+  ],
+  "tested": "Controller self-test 65/65 (exercise.py pad). The rollback loop harness (exercise.py loop) stalls at match frame 2 with this build and with the 0.5.3 build alike (a harness problem, not a change here)"
+}

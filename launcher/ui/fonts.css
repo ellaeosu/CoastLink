@@ -1,0 +1,4 @@
+﻿/* Bundled fonts (SIL Open Font License 1.1, see fonts/OFL.txt): Lexend, Inter, JetBrains Mono, Latin subset. */
+@font-face{font-family:'Lexend';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/Lexend.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/Inter.woff2) format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400 700;font-display:swap;src:url(fonts/JetBrainsMono.woff2) format('woff2')}

@@ -1,0 +1,19 @@
+{
+  "product": "CoastLink",
+  "version": "0.6.1",
+  "runtime_commit": "169b467a653ab239faa7310e990f369442cbae14+coastlink-rb3",
+  "upstream": "https://github.com/Denkishi/ssbu-recomp",
+  "upstream_commit": "8532593a91f588800f7db84e5b13375e1393c23a",
+  "license": "GPL-3.0-or-later",
+  "status": "Experimental; no coast-to-coast performance claim",
+  "custom_components": [
+    "Installer, prelaunch settings and host/join interface",
+    "Explicit rollback player roles",
+    "Strict rollback-only readiness checks",
+    "Match-log comparison that rejects empty or incomplete evidence",
+    "Direct UDP rollback transport, ping-based 2-3 frame delay, early input pickup, stick quantization (runtime rb2)",
+    "CoastLink.exe: a native Windows app (Tauri 2) over the Python tools; signed updates with roll back (launcher/)",
+    "GameCube adapter PC mode, version-partitioned lobby pairing, live audio settings (runtime rb3)",
+    "0.6.1: adaptive controller preview without controller navigation, settings persistence repairs, signed offline updates and bundled release-feed support"
+  ]
+}

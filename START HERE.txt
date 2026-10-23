@@ -1,0 +1,63 @@
+CoastLink 0.6.1
+
+Double-click CoastLink.exe. That's it: no console or PowerShell windows.
+
+NEW INSTALL
+1. Extract the whole CoastLink folder somewhere with about 35 GB free.
+2. Open CoastLink.exe. The first time, it fetches its own private copy of
+   Python from python.org (about 11 MB, checked against a fixed SHA-256).
+3. The setup finds your base game, update 13.0.4 and prod.keys from Ryujinx
+   (or choose them yourself), then builds the game on your PC. This takes a
+   few hours the first time. You can pause it, close CoastLink, and resume.
+   Each player supplies their own game, update and keys. Nothing is uploaded,
+   and CoastLink never downloads game files, keys, firmware, DLC or saves.
+4. Launch offline once. The first start prepares the shaders for your
+   graphics card (a few minutes, once). Online matches wait until this is
+   done. This reduces preparation stalls; smooth matches still depend on both PCs.
+
+UPGRADING FROM 0.5.x (both PCs)
+Close Smash and the old launcher. Extract CoastLink-0.6.1.zip over your
+existing CoastLink folder (say yes to replace files), then open CoastLink.exe.
+Your compiled game, settings, shader caches and saves stay. No game rebuild.
+The old .cmd and PowerShell launchers are removed after CoastLink.exe has
+started once with a complete build. Later updates come through
+Updates & build > Check for updates (signed and checksum-verified, with a
+backup you can roll back to). For Install update file..., keep the update ZIP,
+coastlink-release.json and coastlink-release.json.sig together in one folder.
+
+PLAYING ONLINE
+Both players need the same CoastLink version, the same game update and the
+same DLC. CoastLink refuses to pair different versions and tells you so.
+Online > Shared lobby (recommended): both type the same private lobby code,
+one picks Host and the other Join, then Connect & launch. Test connection
+checks the lobby and whether your friend is already waiting on your version.
+In the game, both go to Smash > Smash, pick rules and stage, choose your own
+fighter as player 1 and start. The lobby pairs the two games.
+Host a room / Join a room: the host's room code shows on the Online screen.
+
+CONTROLLERS
+Controllers lets you pick a device for each player and rebind any button by
+clicking it and pressing the new one (Esc cancels). A running game picks up
+saved changes within a second. GameCube adapters: in PC mode (Mayflash
+switch on PC) every controller gets its own player as soon as it presses a
+button; empty ports no longer take a slot. In Wii U / Switch mode the
+adapter needs the WinUSB driver (the Controllers screen tells you).
+The live preview adapts to Xbox, PlayStation, Switch, GameCube, keyboard or raw
+joystick input. Buttons light up and sticks move while you test. Use mouse or
+keyboard for the launcher: controller input never changes settings or navigates.
+Click Save changes to apply your bindings, deadzone, range and trigger settings.
+Real GameCube adapter troubleshooting is still pending.
+
+AUDIO
+Master volume and "mute when the game is in the background" apply while you
+play. Music, effects and voices are in the game: Options > Sound.
+
+If something goes wrong: Session & Verify > Copy logs saves a zip of the last
+sessions to your Desktop. Verify compares your match log with your friend's.
+
+Experimental software. The native game runtime and rollback come from
+OpenSmash-Ultimate (https://github.com/Denkishi/ssbu-recomp). CoastLink adds
+the app, setup, online pairing, verification and fixes.
+Code: GNU GPL version 3 or later. See LICENSE and SOURCE.json; the source of
+the app is in launcher/ and coastlink/, the runtime's in
+CoastLink-Runtime-rb3-Source.zip.

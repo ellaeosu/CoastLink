@@ -1,0 +1,97 @@
+const assert = require('node:assert/strict');
+const { createHarness } = require('./harness.cjs');
+
+(async () => {
+  const h = await createHarness(), { page, open } = h;
+  page.setDefaultTimeout(5000);
+  let checks = 0;
+  const check = (condition, message) => { assert.ok(condition, message); checks++; };
+  try {
+    await page.evaluate(() => Object.assign(mockSettings.graphics, { resolution_scale: '1.25', vsync: 'mailbox', audio_device: 'Speakers #2 [USB] = Device' }));
+    await open('display');
+    check(await page.locator('#scale').inputValue() === '1.25', 'Supported saved scale is preserved');
+    check(await page.locator('#vsync').inputValue() === 'mailbox', 'Saved VSync mode is preserved');
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Saved');
+    const displayPatch = await page.evaluate(() => mockCalls.filter((c) => c.cmd === 'settings.save').at(-1).args.settings);
+    check(displayPatch.graphics.resolution_scale === '1.25' && displayPatch.graphics.vsync === 'mailbox', 'Save sends displayed values');
+    check(!Object.hasOwn(displayPatch.graphics, 'audio_device') && !Object.hasOwn(displayPatch.launch, 'input_delay'), 'Display does not overwrite hidden settings');
+    await page.locator('[data-seg="renderer"][data-v="opengl"]').click();
+    check(await page.locator('#scale').isDisabled() && await page.locator('#latency').isDisabled(), 'OpenGL-only limits are reflected');
+    await page.locator('[data-seg="renderer"][data-v="vulkan"]').click();
+    await page.locator('#low').check();
+    check(await page.locator('#scale').isDisabled() && await page.locator('#vsync').isDisabled() && !await page.locator('#latency').isDisabled(), 'Low profile disables overridden values only');
+    await page.evaluate(() => { mockErrors['settings.save'] = 'Disk unavailable'; });
+    await page.locator('#save').click();
+    await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Not saved');
+    check(!await page.locator('#save').isDisabled(), 'Failed save can be retried');
+    await page.evaluate(() => { delete mockErrors['settings.save']; });
+    await page.locator('#clear').click();
+    await page.locator('.modal .btn.primary').click();
+    await page.waitForFunction(() => document.querySelector('#shader-count').textContent === 'Not prepared');
+    check(true, 'Clearing shaders refreshes status');
+
+    await open('audio');
+    check(await page.locator('#out').inputValue() === 'Speakers #2 [USB] = Device', 'Audio device names retain special characters');
+    await page.locator('#vol').evaluate((el) => { el.value = '38'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await page.waitForFunction(() => mockSettings.graphics.volume === '38' && document.querySelector('#audio-state').textContent === 'Saved');
+    check(true, 'Live volume saves with status feedback');
+    await page.locator('#out').selectOption('default');
+    check(await page.locator('#audio-state').textContent() === 'Output change not saved', 'Output selection has accurate pending state');
+    await page.locator('#save').click();
+    await page.waitForFunction(() => mockSettings.graphics.audio_device === 'default' && document.querySelector('#audio-state').textContent === 'Saved');
+    check(true, 'Output Save writes selected device');
+    await page.locator('#vol').evaluate((el) => { el.value = '42'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+    await open('play');
+    await page.waitForFunction(() => mockSettings.graphics.volume === '42');
+    check(true, 'Leaving audio flushes the last pending volume change');
+
+    await open('online');
+    await page.locator('#delay').selectOption('higher');
+    await page.waitForFunction(() => mockSettings.launch.input_delay === 'higher');
+    const delayPatch = await page.evaluate(() => mockCalls.filter((c) => c.cmd === 'settings.save').at(-1).args.settings.launch);
+    check(Object.keys(delayPatch).join() === 'input_delay', 'Delay save does not overwrite speed or other launch values');
+    await page.evaluate(() => { mockErrors['settings.save'] = 'Read only'; });
+    await page.locator('#delay').selectOption('lower');
+    await page.waitForFunction(() => document.querySelector('#delay').value === 'higher' && !document.querySelector('#delay').disabled);
+    check(true, 'Failed delay save restores prior selection');
+    await page.evaluate(() => { delete mockErrors['settings.save']; mockCalls = []; });
+    await page.locator('#test').click();
+    check(!await page.evaluate(() => mockCalls.some((c) => c.cmd === 'net.test')), 'Blank code does not probe an unrelated public lobby');
+    await page.locator('#code').fill('buddy-code');
+    await page.locator('#test').click();
+    await page.waitForFunction(() => document.querySelector('#test-out').textContent.includes('Lobby reachable'));
+    check(true, 'Private lobby connection test calls backend');
+    await page.locator('[data-mode="join"]').click();
+    await page.locator('#room-in').fill('ABCDE-12345');
+    await open('play'); await open('online');
+    check(await page.locator('#room-in').inputValue() === 'ABCDE-12345', 'Direct join room code is remembered');
+
+    await open('session');
+    await page.waitForFunction(() => document.querySelector('#mine-n').textContent.endsWith('.hash.txt'));
+    await page.evaluate(() => { mockDialog = ['C:/friend/coastlink_state_20261023_120000.hash.txt', 'C:/friend/coastlink_evidence_20261023_120000.log']; });
+    await page.locator('#theirs').click();
+    await page.locator('#compare').click();
+    await page.waitForFunction(() => document.querySelector('#result').textContent.includes('Not enough evidence to verify'));
+    const verify = await page.evaluate(() => mockCalls.filter((c) => c.cmd === 'verify').at(-1).args);
+    check(verify.mine_runtime.endsWith('coastlink_evidence_20261023_120000.log') && verify.theirs_runtime.endsWith('coastlink_evidence_20261023_120000.log'), 'Both evidence files reach the verifier');
+    check(!await page.locator('#result').textContent().then((text) => text.includes('The logs differ')), 'Insufficient evidence is not reported as a mismatch');
+    await page.evaluate(() => { mockResponses.verify = { report: { ok: false, verdict: 'mismatch', complete_match_verified: false }, text: 'Checksum difference.' }; });
+    await page.locator('#compare').click();
+    await page.waitForFunction(() => document.querySelector('#result').textContent.includes('Recorded hashes differ'));
+    check(true, 'Actual mismatches have a distinct result');
+    check(await page.locator('#leave').isDisabled(), 'Leave is disabled when no game is running');
+
+    await page.evaluate(() => { mockErrors.sessions = 'History unavailable'; mockErrors.status = 'Status unavailable'; });
+    await open('play');
+    await page.waitForFunction(() => document.querySelector('#recent').textContent.includes('Recent sessions unavailable') && document.querySelector('#checks').textContent.includes('Checks unavailable'));
+    check(true, 'Play shows load errors instead of empty or forever-loading panels');
+    await page.evaluate(() => { delete mockErrors.sessions; delete mockErrors.status; mockWait = { 'session.live': true }; });
+    await open('session'); await open('play');
+    await page.evaluate(() => mockResolve['session.live']());
+    await page.waitForTimeout(50);
+    check(await page.evaluate(() => mockDropListeners.size) === 0, 'Leaving session removes its drag-drop subscription');
+    check(h.errors.length === 0, `No unhandled page errors: ${h.errors.join('; ')}`);
+    console.log(`PASS: ${checks} launcher UI/RPC checks (isolated headless browser; no game launches).`);
+  } finally { await h.close(); }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -1,0 +1,4 @@
+ssbu_glslang.dll links the glslang and SPIRV-Tools libraries of the official glslang release
+(https://github.com/KhronosGroup/glslang/releases). Their licences: glslang, mostly BSD-3-Clause and
+other permissive licences, https://github.com/KhronosGroup/glslang/blob/main/LICENSE.txt ; SPIRV-Tools,
+Apache-2.0, https://github.com/KhronosGroup/SPIRV-Tools/blob/main/LICENSE
