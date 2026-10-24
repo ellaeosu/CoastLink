@@ -375,6 +375,41 @@ class AudioSettingsTests(unittest.TestCase):
                 settings.save_settings(build, {"graphics": {"mute_background": "maybe"}})
 
 
+class GameCubeDiagnosticsTests(unittest.TestCase):
+    def test_adapter_report_ports_and_buttons(self):
+        import pads
+        report = bytes([0x21] + [0x10, 0x01 | 0x80, 0x02 | 0x01, 128, 128, 128, 128, 30, 30] + [0x00] * 9
+                       + [0x20, 0, 0x08, 1, 2, 3, 4, 5, 6] + [0x00] * 9)
+        ports = pads.parse_gca_report(report)
+        self.assertEqual([p["connected"] for p in ports], [True, False, True, False])
+        self.assertEqual(ports[0]["pressed"], ["A", "Up", "Start", "Z"])
+        self.assertTrue(ports[2]["wireless"])
+        self.assertEqual(ports[2]["pressed"], ["L"])
+        self.assertIsNone(pads.parse_gca_report(b"\x22" + bytes(36)))
+        self.assertIsNone(pads.parse_gca_report(b"\x21"))
+
+    def test_models_from_type_and_usb_ids(self):
+        import pads
+        self.assertEqual(pads.model_key(3, 0x045E, 0x0B12, "Xbox Series X Controller"), "xboxseries")
+        self.assertEqual(pads.model_key(3, 0x045E, 0x02EA, "Xbox One"), "xboxone")
+        self.assertEqual(pads.model_key(1, 0x0079, 0x1843, "Mayflash"), "gamecube")
+        self.assertEqual(pads.model_key(6, 0x054C, 0x0CE6, "DualSense"), "ps5")
+        self.assertEqual(pads.model_key(1, 0x1234, 0x5678, "Pad", gamepad=False), "joystick")
+
+    def test_game_report_keeps_the_controller_lines_of_the_newest_log(self):
+        with tempfile.TemporaryDirectory() as temp:
+            logs = Path(temp) / "logs"
+            logs.mkdir()
+            (logs / "coastlink_game_20261024_120000_000001.log").write_text(
+                "nvn_vk: device 0\nnn::pad: SDL 3.4.18 ready (no video); x\n"
+                "nn::gca: the adapter is found but WinUSB cannot claim it (error 5): another program has it open.\n"
+                "nn::pad: connected \"GameCube Controller (port 1)\" (gamepad, GameCube) GUID 0300 -> player 2\nrandom line\n", encoding="utf-8")
+            report = app_backend.pad_report(Path(temp))
+        self.assertEqual(report["stamp"], "20261024_120000")
+        self.assertEqual(len(report["lines"]), 3)
+        self.assertIn("WinUSB cannot claim", report["lines"][1])
+
+
 class SaveImportTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

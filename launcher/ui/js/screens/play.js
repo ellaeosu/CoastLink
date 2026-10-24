@@ -1,5 +1,5 @@
 import { call } from '../bridge.js';
-import { esc, icons, status, when } from '../ui.js';
+import { esc, icons, status, when, toast } from '../ui.js';
 import { register } from '../nav.js';
 import { launch } from '../game.js';
 
@@ -40,9 +40,20 @@ register({
         <div class="col" id="recent"><div class="empty">Loading…</div></div>
       </section>
       <section class="card" aria-label="Before you play"><h2>Before you play</h2><div class="col" id="checks"><div class="small muted">Checking this PC…</div></div>
-        <button class="btn" style="margin-top:auto" data-go="controllers">Set up controllers</button></section>
+        <label class="check" style="margin-top:auto">Start the game fullscreen<input type="checkbox" id="fullscreen" disabled></label>
+        <button class="btn" data-go="controllers">Set up controllers</button></section>
     </div>`;
     root.querySelector('#offline').onclick = () => launch('offline');
+    const full = root.querySelector('#fullscreen');
+    call('settings.get').then((s) => { if (!current()) return; full.checked = s.graphics.window !== 'windowed'; full.disabled = false; }).catch(() => {});
+    full.onchange = async () => {
+      full.disabled = true;
+      try {
+        await call('settings.save', { settings: { graphics: { window: full.checked ? 'borderless' : 'windowed' } } });
+        toast(full.checked ? 'The game starts fullscreen from now on.' : 'The game starts in a window from now on.', 'ok');
+      } catch (e) { full.checked = !full.checked; toast(e.message || String(e), 'bad'); }
+      finally { if (current()) full.disabled = false; }
+    };
     call('sessions', { limit: 3 }).then((rows) => { if (current()) root.querySelector('#recent').innerHTML = sessionRows(rows); })
       .catch((e) => { if (current()) root.querySelector('#recent').textContent = `Recent sessions unavailable: ${e.message || e}`; });
     call('status', {}, { timeout: 20000 }).then((s) => {

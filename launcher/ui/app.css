@@ -155,35 +155,60 @@ input[type="range"] { width: 100%; height: 28px; accent-color: var(--red); }
 .controller-identity .small { overflow-wrap: anywhere; }
 .controller-stage { display: grid; place-items: center; min-height: 230px; border-radius: 14px; background: #09090b; border: 1px solid var(--line); padding: 10px 0; }
 .pad-svg { width: 100%; overflow: visible; }
-.pad-shell { fill: #222226; stroke: #64646c; stroke-width: 2; }
-.pad-seam { fill: none; stroke: #38383f; stroke-width: 2; }
-.pad-control > circle, .pad-control > rect, .pad-control > ellipse, .pad-control > path:not(.pad-arrow) { fill: #34343c; stroke: #93939c; stroke-width: 1.4; transition: fill 80ms, stroke 80ms; }
-.pad-control > text { fill: #eeeef2; font: 600 15px var(--body); text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
-.pad-shoulder > text { font-size: 13px; }.pad-menu > text { font-size: 9px; }
-.pad-dpad > text { font-size: 12px; }
-.pad-svg .pad-control.lit > circle, .pad-svg .pad-control.lit > rect, .pad-svg .pad-control.lit > ellipse, .pad-svg .pad-control.lit > path:not(.pad-arrow) { fill: var(--red); stroke: #ffb1b8; }
-.pad-svg .pad-control.lit > text, .pad-svg .pad-control.lit > .pad-arrow { fill: #000; }
-/* per-model details (controller_view.js): printed colours of the real pads; a pressed part is always the app's red */
-.pad-arrow { fill: #c9c9d0; stroke: none; }
-.pad-inset { fill: #34343c; }
-.pad-ring { fill: none; stroke: #93939c; stroke-width: 1.2; }
-.pad-control.lit > .pad-ring { stroke: #000; }
-.stick-cap { fill: none; stroke: #5c5c66; stroke-width: 1.2; }
-.pad-touchpad > rect { fill: #2a2a30; }
-.pad-lightbar { stroke: var(--blue); stroke-width: 3; stroke-linecap: round; opacity: 0.8; }
-.face-green > text { fill: #5fd068; } .face-red > text { fill: #ff6b63; } .face-blue > text { fill: #5aa9ff; } .face-yellow > text { fill: #ffd23f; }
-.face-psblue > text { fill: #8ab8ff; } .face-psred > text { fill: #ff7a7a; } .face-pspink > text { fill: #f39ae0; } .face-psteal > text { fill: #5fd8bf; }
-.gc-shell { fill: #262230; stroke: #6d6680; }
-.gc-a > circle { fill: #1f8a4c; stroke: #59c98a; } .gc-b > circle { fill: #b3303b; stroke: #ff7a85; }
-.gc-xy > ellipse { fill: #4a4a54; stroke: #a5a5ae; }
-.gc-cstick .stick-knob { fill: #d9b31a; stroke: #ffe066; } .gc-cstick .stick-cap { stroke: #a88a12; }
-.gc-z > rect { fill: #5b46a8; stroke: #9c88ff; } .gc-trigger > rect { fill: #3a3a44; }
-.pad-svg .pad-control.lit .stick-knob { fill: var(--red); stroke: #ffb1b8; }
-.stick-well { fill: #111114; stroke: #676771; stroke-width: 1.5; }
-.stick-knob { fill: #41414b; stroke: #a0a0aa; stroke-width: 1.5; }
-.stick-cross { stroke: #52525c; stroke-width: 1; }
+/* controller illustrations (pad_art.js): flat tones as in Ryujinx's input screen; pressed parts turn the app's red */
+.pad-svg text { pointer-events: none; }
+.art-body { fill: #2c2d33; }
+.art-outline { fill: none; stroke: #4a4b54; stroke-width: 2; }
+.art-outline-u { fill: none; stroke: #4a4b54; stroke-width: 4; }
+.art-shade { fill: #24252a; }
+.art-plate { fill: #202126; }
+.art-grip { fill: #34363d; }
+.art-contour { fill: none; stroke: #3a3b42; stroke-width: 1.5; }
+.art-rail { fill: #1c1d21; }
+.art-jc-l { fill: #2b3140; } .art-jc-r { fill: #3b2c31; }
+.art-trigger { fill: #34353b; stroke: #4c4d56; stroke-width: 1.5; }
+.art-bumper { fill: #5b5c65; stroke: #6f7079; stroke-width: 1.2; }
+.art-label { fill: #ececf1; font: 700 15px var(--body); text-anchor: middle; dominant-baseline: central; }
+.art-shoulder .art-label { font-size: 14px; }
+.art-mini { font-size: 13px !important; }
+.art-well { fill: #16171a; }
+.art-well-ring { fill: none; stroke: #31323a; stroke-width: 2; }
+.art-stick-cap { fill: #3c3d44; stroke: #5d5e68; stroke-width: 1.5; }
+.art-stick-top { fill: #303137; }
+.art-stick-label { font-size: 12px; }
+.art-btn-face { fill: #19191d; stroke: #5d5e68; stroke-width: 1.5; }
+.art-small { fill: #33343a; stroke: #565761; stroke-width: 1.2; }
+.art-guide { fill: #2a2b31; }
+.art-ring { fill: none; stroke: #8e8f98; stroke-width: 1.6; }
+.art-icon { fill: none; stroke: #cfcfd6; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.art-dpad { fill: #3a3b42; stroke: #5a5b65; stroke-width: 1.2; }
+.art-dpad-base { fill: #1d1e22; stroke: #3a3b42; stroke-width: 1.5; }
+.art-hot { fill: transparent; }
+.art-arrow { fill: #aeaeb6; }
+.art-touch { fill: #26272c; stroke: #45464f; stroke-width: 1.5; }
+.art-lightbar { fill: none; stroke: #4aa3ff; stroke-width: 3; stroke-linecap: round; opacity: 0.85; }
+.art-sym { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.art-tri { stroke: #4fd1b5; } .art-cir { stroke: #ff6b6b; } .art-crs { stroke: #7fb3ff; } .art-sq { stroke: #f08fd8; }
+.art-xa .art-label { fill: #5fd068; } .art-xb .art-label { fill: #ff6b63; } .art-xx .art-label { fill: #5aa9ff; } .art-xy .art-label { fill: #ffd23f; }
+/* the real controllers' colours: Xbox 360 coloured buttons, DualSense's plain grey symbols, GameCube A / B / X Y / C / Z */
+.art-f360a .art-btn-face { fill: #2f9a4d; stroke: #5cc27a; } .art-f360b .art-btn-face { fill: #c8433a; stroke: #ec7b72; }
+.art-f360x .art-btn-face { fill: #2f6fc6; stroke: #6aa0e8; } .art-f360y .art-btn-face { fill: #d8a61c; stroke: #f1cc5c; }
+.art-f360y .art-label { fill: #17171a; }
+.art-ring-360 { stroke: #a9aab2; stroke-width: 2.4; }
+.art-mono .art-sym { stroke: #b9bac2; }
+.art-face { fill: #222328; }
+.art-gc-a .art-btn-face { fill: #2d8a55; stroke: #5bbb84; } .art-gc-a .art-label { font-size: 18px; }
+.art-gc-b .art-btn-face { fill: #b5384a; stroke: #e0707f; }
+.art-gc-xy .art-btn-face { fill: #8c8d96; stroke: #b2b3bb; } .art-gc-xy .art-label { fill: #17171a; }
+.art-gc-c .art-stick-cap { fill: #caa21c; stroke: #e6c548; } .art-gc-c .art-stick-top { fill: #b38f17; } .art-gc-c .art-label { fill: #17171a; }
+.art-gc-z .art-bumper { fill: #6a58cf; stroke: #8f80ea; }
+.art-shadow { fill: #0d0d10; opacity: 0.55; }
+.art-part * { transition: fill 70ms, stroke 70ms; }
+.pad-svg .art-part.lit :is(circle, rect, ellipse, path, polygon):not(.art-arrow):not(.art-icon):not(.art-sym):not(.art-stick-top):not(.art-shadow) { fill: var(--red); stroke: #ffb3ba; }
+.pad-svg .art-part.lit .art-stick-top { fill: #e03a4a; }
+.pad-svg .art-part.lit .art-label, .pad-svg .art-part.lit .art-arrow { fill: #0b0b0c; }
+.pad-svg .art-part.lit .art-icon, .pad-svg .art-part.lit .art-sym, .pad-svg .art-part.lit .art-ring { stroke: #0b0b0c; }
 .stick-deadzone { fill: #ff475730; stroke: #ff475780; stroke-width: 1; }
-.pad-wordmark { fill: #8a8a95; font: 600 9px var(--head); letter-spacing: 2px; text-anchor: middle; }
 .axis-readout { font: 11px var(--mono); color: var(--text3); white-space: nowrap; }
 .controller-pressed { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 34px; align-items: center; }
 .controller-pressed .pressed { font-size: 11px; height: 28px; padding: 0 10px; }
@@ -194,13 +219,51 @@ input[type="range"] { width: 100%; height: 28px; accent-color: var(--red); }
 .raw-preview { width: 100%; padding: 20px; display: flex; flex-direction: column; gap: 18px; text-align: center; }
 .raw-buttons { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
 .raw-hat { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; max-width: 200px; align-self: center; width: 100%; }
+/* GameCube adapter panel (Controllers) */
+.gca-panel { display: flex; flex-direction: column; gap: 10px; }
+.gca-ports { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.gca-port { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-height: 64px; }
+.gca-port.on { border-color: var(--blue); }
+.gca-port .gca-state { display: flex; flex-wrap: wrap; gap: 4px; }
+.gca-port .pressed { height: 22px; font-size: 11px; padding: 0 8px; }
+.gca-log { white-space: pre-wrap; font: 12px/1.5 var(--mono); color: var(--text2); background: #000; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 6px 0 0; max-height: 200px; overflow: auto; }
+/* Controllers screen, laid out as Ryujinx's input settings */
+.rj-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 14px 18px; }
+.rj-top { display: grid; grid-template-columns: auto minmax(0,1fr) auto minmax(0,1fr); gap: 10px 14px; align-items: center; }
+.rj-top .input { min-height: 42px; }
+.rj-label { font-weight: 600; color: var(--text2); white-space: nowrap; }
+.rj-hint { grid-column: 2 / -1; min-height: 0; }
+.rj-hint:empty { display: none; }
+.rj-grid { display: grid; grid-template-columns: minmax(200px,1fr) minmax(300px,1.35fr) minmax(200px,1fr); gap: 12px; align-items: start; }
+.rj-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.rj-box { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rj-title { text-align: center; font-weight: 700; font-size: 14px; color: var(--text2); padding-bottom: 2px; }
+.rj-row { display: grid; grid-template-columns: 56px minmax(0,1fr); align-items: center; gap: 10px; border-radius: 10px; transition: background var(--t); }
+.rj-key { font-weight: 600; color: var(--text2); text-align: center; }
+.rj-row .bind { min-height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--control); background: var(--raised); color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; padding: 4px 8px; }
+.rj-row .bind:hover { border-color: var(--text); }
+.rj-row.input-active { background: var(--red-dim); } .rj-row.input-active .rj-key { color: var(--red); }
+.rj-row.listening .bind { background: var(--red); color: #000; border-color: var(--red); }
+.rj-shoulders .rj-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rj-shoulders .rj-row { grid-template-columns: 30px minmax(0,1fr); }
+.rj-center { align-items: stretch; }
+.rj-threshold .slider .top { justify-content: center; gap: 10px; }
+.rj-stage { min-height: 300px; background: transparent; border: 0; padding: 4px 0; }
+.rj-stage .pad-svg { max-height: 360px; }
 @media (max-width: 1190px) {
   main#view { padding: 26px; }
   nav#side { width: 208px; padding-inline: 12px; }
   .controller-workspace { grid-template-columns: minmax(180px,1fr) minmax(260px,1.3fr) minmax(180px,1fr); gap: 10px; }
   .controller-workspace .card { padding: 13px; }
 }
+@media (max-width: 1190px) {
+  .rj-grid { grid-template-columns: minmax(180px,1fr) minmax(260px,1.25fr) minmax(180px,1fr); gap: 10px; }
+  .rj-top { grid-template-columns: auto minmax(0,1fr); }
+  .rj-hint { grid-column: 2; }
+}
 @media (max-width: 1000px) {
+  .rj-grid { grid-template-columns: 1fr 1fr; }
+  .rj-center { grid-column: 1/-1; grid-row: 1; }
   .controller-workspace { grid-template-columns: 1fr 1fr; }
   .controller-live { grid-column: 1/-1; grid-row: 1; position: static; }
   .controller-stage { max-height: 280px; }.pad-svg { max-height: 250px; }

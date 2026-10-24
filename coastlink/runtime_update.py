@@ -10,7 +10,7 @@ import shutil
 import stat
 import tempfile
 
-COMMIT = '169b467a653ab239faa7310e990f369442cbae14+coastlink-rb4'
+COMMIT = '169b467a653ab239faa7310e990f369442cbae14+coastlink-rb5'
 # name: (the installed builds it may replace (original install, 0.4.1 repair, 0.5.x), the new build)
 REPLACEMENTS = {
     'ssbu_native_rb.exe': (('b6ec23de51a7b4f9b0f790bdda95e14e2c88b1993ac8304c7afa004de4b5f68f',
@@ -19,8 +19,9 @@ REPLACEMENTS = {
                             'cf56d86217487ba364d86fc5c052c2981e21b0242c92b9ec0005f5e601d1bd9c',
                             'c6a906d90f67256af3d8f95580a65d7b2704aedfd5f7bbc5eda304f2efea23fe',
                             '6600e5bf33d818e83612f9b72344bd90ccdf07a0d08a0abca8141ce1687371cc',
-                            'be6209f22fe0020ec904e748dfa2a3892249d7b45e245920cd5077ad135941e6'),
-                           '3fc3fc15bfb502eb37f56e405ae727b44626209acfe22a1fc9b18f4999c0a758'),
+                            'be6209f22fe0020ec904e748dfa2a3892249d7b45e245920cd5077ad135941e6',
+                            '3fc3fc15bfb502eb37f56e405ae727b44626209acfe22a1fc9b18f4999c0a758'),
+                           '91fef215891fd23ddb4166ebfca82c11dddb14de834829121af9f0da8a8e2b50'),
     'ssbu_glslang.dll': (('5ffbbd3caa74f8a0c3ad72a6b6e3eb707b53c657cd8384fd928aab08e462165c',
                           'c661baa1816878a84758ab9d3ef533bbfcef53a8effdfa1adc98f813d8742a2e'),
                          'df157cdfd1fba75cb187eb5db4868de03e2e76fc83f0785c5a0097d0385d3a50'),

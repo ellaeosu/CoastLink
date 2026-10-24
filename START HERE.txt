@@ -1,4 +1,4 @@
-CoastLink 0.6.3
+CoastLink 0.6.4
 
 Double-click CoastLink.exe. That's it: no console or PowerShell windows.
 
@@ -16,7 +16,7 @@ NEW INSTALL
    done. This reduces preparation stalls; smooth matches still depend on both PCs.
 
 UPGRADING FROM 0.5.x (both PCs)
-Close Smash and the old launcher. Extract CoastLink-0.6.3.zip over your
+Close Smash and the old launcher. Extract CoastLink-0.6.4.zip over your
 existing CoastLink folder (say yes to replace files), then open CoastLink.exe.
 Your compiled game, settings, shader caches and saves stay. No game rebuild.
 The old .cmd and PowerShell launchers are removed after CoastLink.exe has
@@ -48,7 +48,10 @@ keyboard for the launcher: controller input never changes settings or navigates.
 Click Save changes to apply your bindings, deadzone, range and trigger settings.
 PC mode is read through Windows' own controller support (every firmware). If the
 Controllers screen says WinUSB is on the PC-mode device, flip the switch to Wii U
-or remove that driver in Device Manager. Not yet tested on a physical adapter.
+or remove that driver in Device Manager. In Wii U mode, Controllers > Test adapter
+reads the adapter for 15 seconds and shows every port; close Dolphin / Slippi and
+turn off Steam's GameCube Configuration Support first (they hold the adapter).
+"What the game saw last time" lists the controller lines of the last game start.
 
 SAME SAVE FOR EVERYONE
 Updates & build > Game save > Import save file... loads a Smash save backup you
@@ -56,6 +59,10 @@ have on your PC: a JKSV backup .zip, its folder ("100"), or save_data/system_dat
 Your current save is kept and can be put back there. Each player downloads the
 save themselves; CoastLink never ships or downloads saves. Close the game first.
 BCAT data (Spirit Board events) is not used by this version of the game.
+
+FULLSCREEN
+Play > "Start the game fullscreen", or Display & speed > Game window. F11 in the
+game switches, and the game remembers it for the next start.
 
 AUDIO
 Master volume and "mute when the game is in the background" apply while you

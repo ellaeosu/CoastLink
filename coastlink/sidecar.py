@@ -420,6 +420,27 @@ def pads_adapters(_):
     return gamecube_adapters()
 
 
+@command("pads.gca_test")
+def pads_gca_test(args):
+    """Test the GameCube adapter (Wii U mode, WinUSB) for a few seconds; ports stream as `gca` events."""
+    from pads import gamecube_adapter_test
+    if running("game"):
+        raise RuntimeError("Close the game first: it is using the adapter.")
+    return gamecube_adapter_test(lambda ports: event("gca", ports=ports), float(args.get("seconds", 15)))
+
+
+@command("pads.gca_stop")
+def pads_gca_stop(_):
+    from pads import stop_gamecube_adapter_test
+    stop_gamecube_adapter_test()
+    return {"stopped": True}
+
+
+@command("pads.game_report")
+def pads_game_report(_):
+    return app_backend.pad_report(build_dir())
+
+
 @command("pads.watch")
 def pads_watch(args):
     from pads import watcher

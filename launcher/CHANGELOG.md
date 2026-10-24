@@ -1,3 +1,14 @@
+# 0.6.4
+
+- Controllers is laid out like Ryujinx's input settings (player, profile, device and type on top; ZL/L/minus,
+  left stick and D-pad left; the picture and trigger threshold in the middle; ZR/R/plus, buttons and right stick
+  right), with drawings of each real controller: Xbox 360 / One / Series, DualSense, DualShock 4 / 3, Switch Pro,
+  Joy-Con and GameCube, in their real layouts and button colours. Pressed parts light up; sticks move.
+- Fullscreen: Play > "Start the game fullscreen" and Display & speed > Game window; F11 in the game is remembered.
+- GameCube adapter: Controllers > Test adapter reads a Wii U-mode (WinUSB) adapter for 15 seconds and shows each
+  port; "What the game saw last time" shows the game's controller lines. A busy adapter names Steam's GameCube
+  Configuration Support and Dolphin / Slippi. Runtime rb5 (no game rebuild).
+
 # 0.6.3
 
 - Updates & build > Game save > Import save file...: load a Smash save backup you have (a JKSV

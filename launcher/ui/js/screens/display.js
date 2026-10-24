@@ -28,7 +28,8 @@ register({
       <div class="col" style="gap:14px">
         <section class="card" aria-label="Graphics"><h2>Graphics</h2>
           <div class="col"><span style="font-weight:600">Renderer</span>${seg('renderer', g.renderer, [['vulkan', 'Vulkan'], ['opengl', 'OpenGL (fallback)']])}</div>
-          <div class="col"><span style="font-weight:600">Window</span>${seg('window', g.window, [['windowed', 'Windowed'], ['borderless', 'Borderless'], ['fullscreen', 'Fullscreen']])}</div>
+          <div class="col"><span style="font-weight:600">Game window</span>${seg('window', g.window, [['windowed', 'Window'], ['borderless', 'Fullscreen'], ['fullscreen', 'Fullscreen, on top']])}
+            <span class="small faint">Fullscreen fills the screen without changing its resolution. F11 in the game switches, and the game remembers it.</span></div>
           <div class="grid2" style="gap:12px">
             <div class="col" style="gap:6px"><label for="size" style="font-weight:600">Window size</label>${select('size', size, sizes)}</div>
             <div class="col" style="gap:6px"><label for="scale" style="font-weight:600">Internal resolution</label>${select('scale', String(+g.resolution_scale), [['0.25', '480 × 270'], ['0.5', '960 × 540 (weak GPU)'], ['0.75', '1440 × 810'], ['1', '1920 × 1080 (console)'], ['1.25', '2400 × 1350'], ['1.5', '2880 × 1620'], ['2', '3840 × 2160 (strong GPU)']])}</div>

@@ -5,11 +5,18 @@ import { esc, icons, status, toast, modal, errorText } from '../ui.js';
 import { register, suspend } from '../nav.js';
 import { controllerDiagram, paintController, pressedSources, bindingPressed, modelName } from '../controller_view.js';
 
-const LEFT = [['L', 'Shield'], ['ZL', 'Grab'], ['MINUS', 'Minus'], ['UP', 'Taunt up'], ['DOWN', 'Taunt down'], ['LEFT', 'Taunt left'], ['RIGHT', 'Taunt right'], ['STICK_L', 'Stick press']];
-const RIGHT = [['A', 'Attack'], ['B', 'Special'], ['X', 'Jump'], ['Y', 'Jump'], ['R', 'Shield'], ['ZR', 'Grab'], ['PLUS', 'Pause'], ['STICK_R', 'Stick press']];
-const GLYPH = { MINUS: '−', PLUS: '+', UP: 'D↑', DOWN: 'D↓', LEFT: 'D←', RIGHT: 'D→', STICK_L: 'LS', STICK_R: 'RS', LSTICK_LEFT: 'L←', LSTICK_UP: 'L↑', LSTICK_RIGHT: 'L→', LSTICK_DOWN: 'L↓', RSTICK_LEFT: 'R←', RSTICK_UP: 'R↑', RSTICK_RIGHT: 'R→', RSTICK_DOWN: 'R↓' };
-const KEY_LEFT = [['LSTICK_LEFT', 'Move left'], ['LSTICK_UP', 'Move up'], ['LSTICK_RIGHT', 'Move right'], ['LSTICK_DOWN', 'Move down']];
-const KEY_RIGHT = [['RSTICK_LEFT', 'C-stick left'], ['RSTICK_UP', 'C-stick up'], ['RSTICK_RIGHT', 'C-stick right'], ['RSTICK_DOWN', 'C-stick down']];
+// Ryujinx-style groups: [control, Smash action (tooltip)]
+const SHOULDER_L = [['ZL', 'Shield'], ['MINUS', 'Minus'], ['L', 'Grab']];
+const SHOULDER_R = [['ZR', 'Shield'], ['PLUS', 'Pause'], ['R', 'Grab']];
+const FACE = [['A', 'Attack'], ['B', 'Special'], ['X', 'Jump'], ['Y', 'Jump']];
+const DPAD = [['UP', 'Taunt up'], ['DOWN', 'Taunt down'], ['LEFT', 'Taunt left'], ['RIGHT', 'Taunt right']];
+const GLYPH = { MINUS: '−', PLUS: '+', UP: 'Up', DOWN: 'Down', LEFT: 'Left', RIGHT: 'Right', STICK_L: 'Button', STICK_R: 'Button',
+  LSTICK_LEFT: 'Left', LSTICK_UP: 'Up', LSTICK_RIGHT: 'Right', LSTICK_DOWN: 'Down', RSTICK_LEFT: 'Left', RSTICK_UP: 'Up', RSTICK_RIGHT: 'Right', RSTICK_DOWN: 'Down' };
+const KEY_LEFT = [['LSTICK_UP', 'Move up'], ['LSTICK_DOWN', 'Move down'], ['LSTICK_LEFT', 'Move left'], ['LSTICK_RIGHT', 'Move right']];
+const KEY_RIGHT = [['RSTICK_UP', 'C-stick up'], ['RSTICK_DOWN', 'C-stick down'], ['RSTICK_LEFT', 'C-stick left'], ['RSTICK_RIGHT', 'C-stick right']];
+// the keyboard drives a Pro Controller: which part of the picture each key lights
+const KB_SRC = { A: 'east', B: 'south', X: 'north', Y: 'west', L: 'leftshoulder', R: 'rightshoulder', PLUS: 'start', MINUS: 'back',
+  STICK_L: 'leftstick', STICK_R: 'rightstick', UP: 'dpup', DOWN: 'dpdown', LEFT: 'dpleft', RIGHT: 'dpright' };
 const FIXED = { L: 'leftshoulder', R: 'rightshoulder', ZL: 'lefttrigger', ZR: 'righttrigger', PLUS: 'start', MINUS: 'back', STICK_L: 'leftstick', STICK_R: 'rightstick', UP: 'dpup', DOWN: 'dpdown', LEFT: 'dpleft', RIGHT: 'dpright' };
 const NAMES = {
   xbox: { south: 'A', east: 'B', west: 'X', north: 'Y', leftshoulder: 'LB', rightshoulder: 'RB', lefttrigger: 'LT', righttrigger: 'RT', back: 'View', start: 'Menu', guide: 'Xbox', leftstick: 'LS press', rightstick: 'RS press' },
@@ -45,8 +52,9 @@ register({
     this.cleanup = () => { active = false; };
     const s = { player: 1, devices: [], cfg: null, settings: null, adapters: [], profiles: [], pending: { players: {}, devices: {} }, keyboard: {}, kbPlayer: null, live: null, listen: null };
     const load = async () => {
-      [s.devices, s.cfg, s.settings, s.adapters, s.profiles] = await Promise.all([call('pads.devices'), call('pads.config'), call('settings.get'),
-        call('pads.adapters').catch(() => []), call('pads.profiles', { action: 'list' }).then((r) => r.profiles).catch(() => [])]);
+      [s.devices, s.cfg, s.settings, s.adapters, s.profiles, s.report] = await Promise.all([call('pads.devices'), call('pads.config'), call('settings.get'),
+        call('pads.adapters').catch(() => []), call('pads.profiles', { action: 'list' }).then((r) => r.profiles).catch(() => []),
+        call('pads.game_report').catch(() => ({ lines: [] }))]);
       if (!s.kbChanged) s.kbPlayer = s.settings.controller.keyboard_player;
     };
     await load();
@@ -65,24 +73,52 @@ register({
     const dirty = () => Object.keys(s.pending.players).length || Object.keys(s.pending.devices).length || Object.keys(s.keyboard).length || s.kbChanged;
 
     root.classList.add('controllers-screen');
-    root.innerHTML = `<header class="page-head"><div><span class="label">Make it feel like yours</span><h1>Controllers</h1><p>Choose your controller. Press a button and watch it light up.</p></div>
+    root.innerHTML = `<header class="page-head"><div><h1>Controllers</h1><p>Click a binding, then press the button you want for it. Press anything to see it light up.</p></div>
       <div class="row"><button class="btn" id="reset">Reset to default</button><button class="btn primary" id="save">${icons.save} Save</button></div></header>
-      <div class="tabs" role="tablist" aria-label="Player" id="tabs"></div>
       <div id="adapters"></div>
-      <section class="card tight controller-device-row" aria-label="Device and profile" id="devrow"></section>
-      <div class="controller-workspace" id="body"></div>`;
+      <section class="rj-panel rj-top" aria-label="Player, device and profile" id="devrow"></section>
+      <div class="rj-grid" id="body"></div>`;
     function updateDirty() { const b = root.querySelector('#save'); if (b) { b.disabled = !dirty(); b.innerHTML = `${icons.save} ${dirty() ? 'Save changes' : 'Saved'}`; } }
 
-    const renderTabs = () => {
-      root.querySelector('#tabs').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8].map((p) => {
-        const d = deviceOf(p), has = d || kbIs(p);
-        return `<button class="tab ${has ? 'has' : ''}" role="tab" aria-selected="${s.player === p}" data-p="${p}">${has ? `<span class="dot" style="background:${p === 1 ? 'var(--red)' : 'var(--blue)'}"></span>` : ''}Player ${p}</button>`;
-      }).join('');
-      root.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { cancelListening(); s.player = +b.dataset.p; s.lastPad = null; renderAll(); });
-    };
+    const renderTabs = () => {};      // (the player is chosen in the top panel, as in Ryujinx)
+    // GameCube adapters: what Windows sees, a live test of the Wii U mode (WinUSB, which only the game reads), and the
+    // controller lines of the last game start
+    const gcLines = () => (s.report?.lines || []).filter((l) => /nn::gca|GameCube|0x0079|Mayflash/i.test(l));
     const renderAdapters = () => {
-      root.querySelector('#adapters').innerHTML = s.adapters.map((a) => `<div class="card tight" style="flex-direction:row;align-items:center">${status(a.usable ? 'ok' : 'warn', a.mode === 'pc' ? 'GameCube adapter (PC mode)' : 'GameCube adapter (Wii U / Switch mode)')}<span class="small muted grow">${esc(a.advice)}</span></div>`).join('');
+      const box = root.querySelector('#adapters');
+      const lines = gcLines();
+      if (!s.adapters.length && !lines.length) { box.innerHTML = ''; return; }
+      box.innerHTML = `<div class="rj-panel gca-panel">${s.adapters.map((a) => `<div class="row wrap" style="gap:10px">
+          ${status(a.usable ? 'ok' : 'warn', a.mode === 'pc' ? 'GameCube adapter · PC mode' : 'GameCube adapter · Wii U mode')}
+          <span class="small muted grow">${esc(a.advice)}</span>
+          ${a.mode === 'wiiu' && a.usable ? '<button class="btn" id="gca-test">Test adapter</button>' : ''}</div>`).join('')}
+        <div class="gca-ports" id="gca-ports" hidden>${[1, 2, 3, 4].map((p) => `<div class="gca-port" data-port="${p}"><span class="rj-key">Port ${p}</span><span class="gca-state small faint">waiting…</span></div>`).join('')}</div>
+        <span class="small" id="gca-result"></span>
+        ${lines.length ? `<details><summary class="small" style="cursor:pointer;min-height:28px">What the game saw last time it started</summary>
+          <pre class="gca-log">${esc(lines.join('\n'))}</pre></details>` : ''}</div>`;
+      const btn = box.querySelector('#gca-test');
+      if (btn) btn.onclick = async () => {
+        if (s.gcaTesting) { call('pads.gca_stop').catch(() => {}); return; }
+        s.gcaTesting = true; btn.textContent = 'Stop test';
+        box.querySelector('#gca-ports').hidden = false;
+        box.querySelector('#gca-result').innerHTML = status('info', 'Reading the adapter for 15 seconds: press buttons on each controller…');
+        try {
+          const r = await call('pads.gca_test', { seconds: 15 }, { timeout: 30000 });
+          if (active) box.querySelector('#gca-result').innerHTML = status(r.ok ? 'ok' : 'bad', r.ok ? r.summary : r.error);
+        } catch (e) { if (active) box.querySelector('#gca-result').innerHTML = status('bad', errorText(e)); }
+        finally { s.gcaTesting = false; if (active && box.querySelector('#gca-test')) box.querySelector('#gca-test').textContent = 'Test adapter'; }
+      };
     };
+    const offGca = on('gca', (m) => {
+      for (const p of m.ports || []) {
+        const el = root.querySelector(`.gca-port[data-port="${p.port}"]`);
+        if (!el) continue;
+        el.classList.toggle('on', p.connected);
+        el.querySelector('.gca-state').innerHTML = p.connected
+          ? (p.pressed.length ? p.pressed.map((b) => `<span class="pressed">${esc(b)}</span>`).join('') : status('ok', 'Connected'))
+          : '<span class="faint">Empty</span>';
+      }
+    });
     const renderDevRow = () => {
       const p = s.player, a = assigned(p), d = deviceOf(p);
       const kb = String(s.kbPlayer) === String(p);
@@ -90,15 +126,19 @@ register({
         ...s.devices.map((x) => `<option value="${esc(x.guid)}" ${(a === x.guid || (a === 'auto' && !kb && d?.guid === x.guid && false)) ? 'selected' : ''}>${esc(x.name)} · ${esc(x.kind)}${x.player && x.player !== p ? ` (now player ${x.player})` : ''}</option>`),
         `<option value="keyboard" ${kb ? 'selected' : ''}>Keyboard</option>`, `<option value="none" ${a === 'none' && !kb ? 'selected' : ''}>Nobody</option>`];
       const layout = d ? devVal(d.guid, 'layout') || 'auto' : 'auto';
-      root.querySelector('#devrow').innerHTML = `<div class="col" style="gap:6px"><label class="label" for="dev">Input device</label>
-          <div class="row" style="gap:8px"><select id="dev" class="input grow">${opts.join('')}</select><button class="btn icon" id="refresh" aria-label="Refresh devices">${icons.refresh}</button></div>
-          <span class="small faint">${d && a === 'auto' ? `Automatic: ${esc(d.name)}` : s.devices.length ? '' : 'No controller found. Plug one in and press Refresh.'}</span></div>
-        <div class="col" style="gap:6px"><label class="label" for="layout">Face buttons</label><select id="layout" class="input" ${d ? '' : 'disabled'}>
-          <option value="auto">Automatic</option><option value="positional">By position (like a Switch)</option><option value="labels">By the printed letters</option></select></div>
-        <div class="col" style="gap:6px"><label class="label" for="prof">Profile</label><div class="row" style="gap:8px">
-          <select id="prof" class="input grow" ${d ? '' : 'disabled'}><option value="">Choose a saved profile…</option>${s.profiles.map((n) => `<option>${esc(n)}</option>`).join('')}</select>
-          <button class="btn icon" id="prof-save" aria-label="Save profile" ${d ? '' : 'disabled'}>${icons.save}</button><button class="btn icon" id="prof-del" aria-label="Delete profile" ${d ? '' : 'disabled'}>${icons.trash}</button></div></div>`;
+      const players = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => { const who = deviceOf(n) ? deviceOf(n).name : kbIs(n) ? 'Keyboard' : '';
+        return `<option value="${n}" ${n === p ? 'selected' : ''}>Player ${n}${who ? ` · ${esc(who)}` : ''}</option>`; }).join('');
+      root.querySelector('#devrow').innerHTML = `
+        <label class="rj-label" for="player">Player</label><select id="player" class="input">${players}</select>
+        <label class="rj-label" for="prof">Profile</label><div class="row" style="gap:8px">
+          <select id="prof" class="input grow" ${d ? '' : 'disabled'}><option value="">Default</option>${s.profiles.map((n) => `<option>${esc(n)}</option>`).join('')}</select>
+          <button class="btn icon" id="prof-save" aria-label="Save profile" title="Save these bindings as a profile" ${d ? '' : 'disabled'}>${icons.save}</button><button class="btn icon" id="prof-del" aria-label="Delete profile" title="Delete the chosen profile" ${d ? '' : 'disabled'}>${icons.trash}</button></div>
+        <label class="rj-label" for="dev">Input Device</label><div class="row" style="gap:8px"><select id="dev" class="input grow">${opts.join('')}</select><button class="btn icon" id="refresh" aria-label="Refresh devices" title="Look for controllers again">${icons.refresh}</button></div>
+        <label class="rj-label" for="layout">Controller Type</label><select id="layout" class="input" ${d ? '' : 'disabled'}>
+          <option value="auto">Automatic</option><option value="positional">Pro Controller (by position)</option><option value="labels">By the printed letters</option></select>
+        <span class="small faint rj-hint">${d && a === 'auto' ? `Automatic: ${esc(d.name)}` : s.devices.length ? '' : 'No controller found. Plug one in and press Refresh.'}</span>`;
       root.querySelector('#layout').value = layout;
+      root.querySelector('#player').onchange = (e) => { cancelListening(); s.player = +e.target.value; s.lastPad = null; renderAll(); };
       root.querySelector('#dev').onchange = (e) => {
         cancelListening(); s.lastPad = null;
         const v = e.target.value;
@@ -141,9 +181,10 @@ register({
       if (kb) label = s.keyboard[control] ?? s.settings.keyboard_bindings[control] ?? 'none';
       else { const v = devVal(d.guid, 'map.' + control.toLowerCase()); label = v ? sourceName(v, d.kind) : sourceName(defaultSource(control, devVal(d.guid, 'layout') || 'auto', d.kind, d.gamepad === false), d.kind); }
       const listening = s.listen === control;
-      return `<div class="bind-row ${listening ? 'listening' : ''}"><span class="glyph ${'ABXY'.includes(control) && control.length === 1 ? 'round' : ''}">${esc(GLYPH[control] || control)}</span>
-        <span class="action">${listening ? 'Press a button… (Esc cancels)' : esc(action)}</span><button class="bind" data-bind="${control}" aria-label="${esc(listening ? 'Cancel binding ' + control : 'Change ' + action + ' (' + control + '), currently ' + label)}" title="${esc(action)}">${listening ? 'Cancel' : esc(label)}</button></div>`;
+      return `<div class="rj-row ${listening ? 'listening' : ''}" title="${esc(action)}"><span class="rj-key">${esc(GLYPH[control] || control)}</span>
+        <button class="bind" data-bind="${control}" aria-label="${esc(listening ? 'Cancel binding ' + control : 'Change ' + action + ' (' + control + '), currently ' + label)}">${listening ? (kb ? 'Press a key… (Esc)' : 'Press a button… (Esc)') : esc(label)}</button></div>`;
     };
+    const box = (title, inner, cls = '') => `<div class="rj-box ${cls}">${title ? `<div class="rj-title">${title}</div>` : ''}${inner}</div>`;
     const slider = (id, label, value, min, max, step, fmt) => `<div class="slider"><div class="top"><label for="${id}">${label}</label><span class="mono" id="${id}-v">${fmt(value)}</span></div>
       <input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
 
@@ -157,20 +198,31 @@ register({
       const g = s.cfg.general;
       const dz = +(d ? devVal(d.guid, 'deadzone') ?? g.deadzone ?? 0.1 : 0.1), oz = +(d ? devVal(d.guid, 'outer_zone') ?? g.outer_zone ?? 0.98 : 0.98);
       const rs = +(d ? devVal(d.guid, 'rumble_strength') ?? g.rumble_strength ?? 1 : 1), rum = (d ? devVal(d.guid, 'rumble') ?? g.rumble ?? 'on' : 'off') !== 'off';
-      body.innerHTML = `<section class="card controller-bindings" aria-label="Left side"><div class="row"><h2>Movement</h2><span class="small faint grow">& triggers</span></div>
-          ${d ? `<div class="row"><span class="grow small">Left stick</span><span class="axis-readout" data-axis-readout="left">X 0.00 · Y 0.00</span></div>
-          ${slider('dz', 'Deadzone', dz, 0, 0.95, 0.01, (v) => (+v).toFixed(2))}${slider('oz', 'Range (full tilt at)', oz, 0.05, 1, 0.01, (v) => Math.round(v * 100) + '%')}${slider('trigger', 'Trigger threshold', +(devVal(d.guid, 'trigger_threshold') ?? 0.33), 0, 1, 0.01, (v) => Math.round(v * 100) + '%')}<div class="divider"></div>` : ''}
-          ${[...LEFT, ...(!d ? KEY_LEFT : [])].map(([c, a]) => bindRow(c, a, d)).join('')}</section>
-        <section class="card controller-live" aria-label="Live test"><div class="row" style="justify-content:space-between"><span class="label">Live preview</span><span id="conn" class="small">${d ? status(s.devices.some((x) => x.guid === d.guid) ? 'ok' : 'warn', s.devices.some((x) => x.guid === d.guid) ? 'Connected' : 'Not connected') : status('ok', 'Keyboard')}</span></div>
-          <div class="controller-identity"><h2>${d ? esc(modelName(d)) : 'Keyboard'}</h2><span class="small muted">${d ? esc(d.name) : 'Your bindings, at a glance'}</span></div>
-          <div class="controller-stage">${controllerDiagram(d, !d, d?.gamepad === false)}</div>
-          <div id="pressed" class="controller-pressed"><span class="small faint">Press a button to test</span></div>
-          <div class="controller-preview-note">Preview only · Controller input never operates the launcher.</div>
-          ${d ? `<div class="divider"></div><label class="check">Rumble<input type="checkbox" id="rum" ${rum ? 'checked' : ''}></label>
-          ${slider('rs', 'Rumble strength', rs, 0, 2, 0.05, (v) => Math.round(v * 100) + '%')}<button class="btn" id="rtest">Test rumble</button>` : ''}</section>
-        <section class="card controller-bindings" aria-label="Right side"><div class="row" style="justify-content:space-between"><h2>Actions</h2><span class="small faint">Game → yours</span></div>
-          ${d ? '<span class="axis-readout" data-axis-readout="right">X 0.00 · Y 0.00</span>' : ''}
-          ${[...RIGHT, ...(!d ? KEY_RIGHT : [])].map(([c, a]) => bindRow(c, a, d)).join('')}</section>`;
+      const rows = (list) => list.map(([c, a]) => bindRow(c, a, d)).join('');
+      const connected = d ? s.devices.some((x) => x.guid === d.guid) : true;
+      const picture = d ? controllerDiagram(d, false, d.gamepad === false) : controllerDiagram({ model: 'switchpro', gamepad: true });
+      body.innerHTML = `<section class="rj-col" aria-label="Left side">
+          ${box('', `<div class="rj-pair">${rows(SHOULDER_L)}</div>`, 'rj-shoulders')}
+          ${box('Left Stick', `${rows([['STICK_L', 'Stick press']])}${d
+            ? `<div class="rj-row"><span class="rj-key">Stick</span><span class="axis-readout" data-axis-readout="left">X 0.00 · Y 0.00</span></div>
+               ${slider('dz', 'Deadzone', dz, 0, 0.95, 0.01, (v) => (+v).toFixed(2))}${slider('oz', 'Range (full tilt at)', oz, 0.05, 1, 0.01, (v) => Math.round(v * 100) + '%')}`
+            : rows(KEY_LEFT)}`)}
+          ${box('D-Pad', rows(DPAD))}</section>
+        <section class="rj-col rj-center" aria-label="Live preview">
+          ${d && d.gamepad !== false ? box('', slider('trigger', 'Trigger Threshold', +(devVal(d.guid, 'trigger_threshold') ?? 0.33), 0, 1, 0.01, (v) => (+v).toFixed(2)), 'rj-threshold') : ''}
+          <div class="controller-identity"><h2>${d ? esc(modelName(d)) : 'Keyboard'}</h2><span class="small muted">${d ? esc(d.name) : 'The game sees a Pro Controller'}</span>
+            <span id="conn" class="small">${status(connected ? 'ok' : 'warn', d ? (connected ? 'Connected' : 'Not connected') : 'Keys light it up')}</span></div>
+          <div class="controller-stage rj-stage">${picture}</div>
+          <div id="pressed" class="controller-pressed"><span class="small faint">${d ? 'Press a button to test' : 'Press a key to test'}</span></div>
+          ${d ? box('Rumble', `<label class="check">Rumble<input type="checkbox" id="rum" ${rum ? 'checked' : ''}></label>
+            ${slider('rs', 'Strength', rs, 0, 2, 0.05, (v) => Math.round(v * 100) + '%')}<button class="btn" id="rtest">Test rumble</button>`) : ''}
+          <div class="controller-preview-note">Preview only · controller input never operates the launcher.</div></section>
+        <section class="rj-col" aria-label="Right side">
+          ${box('', `<div class="rj-pair">${rows(SHOULDER_R)}</div>`, 'rj-shoulders')}
+          ${box('Buttons', rows(FACE))}
+          ${box('Right Stick', `${rows([['STICK_R', 'Stick press']])}${d
+            ? '<div class="rj-row"><span class="rj-key">Stick</span><span class="axis-readout" data-axis-readout="right">X 0.00 · Y 0.00</span></div>'
+            : rows(KEY_RIGHT)}`)}</section>`;
       const hook = (id, key, fmt) => { const el = body.querySelector('#' + id); if (!el) return; el.oninput = () => { body.querySelector(`#${id}-v`).textContent = fmt(el.value); setDev(d.guid, key, el.value); if (s.lastPad?.guid === d.guid) showPad(s.lastPad, d); }; };
       if (d) {
         hook('dz', 'deadzone', (v) => (+v).toFixed(2)); hook('oz', 'outer_zone', (v) => Math.round(v * 100) + '%'); hook('rs', 'rumble_strength', (v) => Math.round(v * 100) + '%'); hook('trigger', 'trigger_threshold', (v) => Math.round(v * 100) + '%');
@@ -200,20 +252,25 @@ register({
       root.querySelectorAll('[data-bind]').forEach((b) => {
         const control = b.dataset.bind;
         const binding = devVal(d.guid, 'map.' + control.toLowerCase()) ?? defaultSource(control, devVal(d.guid, 'layout') || 'auto', d.kind, d.gamepad === false);
-        b.closest('.bind-row').classList.toggle('input-active', bindingPressed(binding, now));
+        b.closest('.rj-row').classList.toggle('input-active', bindingPressed(binding, now));
       });
       const pr = root.querySelector('#pressed'); if (pr) pr.innerHTML = now.length ? now.map((b) => `<span class="pressed">${esc(sourceName(b, d.kind))}</span>`).join('') : '<span class="small faint">Press a button to test</span>';
       return now;
     }
     const keys = new Set();
     function paintKeys() {
-      const values = [...keys];
-      root.querySelectorAll('[data-key-control], [data-bind]').forEach((el) => {
-        const c = el.dataset.keyControl || el.dataset.bind;
+      const values = [...keys], held = new Set();
+      root.querySelectorAll('[data-bind]').forEach((el) => {
+        const c = el.dataset.bind;
         const active = String(s.keyboard[c] ?? s.settings.keyboard_bindings[c] ?? 'none').split(',').some((k) => values.includes(k.trim()));
-        if (el.dataset.keyControl) el.classList.toggle('lit', active);
-        else el.closest('.bind-row').classList.toggle('input-active', active);
+        el.closest('.rj-row').classList.toggle('input-active', active);
+        if (active) held.add(c);
       });
+      // the Pro Controller picture: buttons, triggers and both sticks from the held keys
+      const axis = (neg, pos) => ((held.has(pos) ? 1 : 0) - (held.has(neg) ? 1 : 0)) * 32767;
+      paintController(root, { buttons: [...held].map((c) => KB_SRC[c]).filter(Boolean),
+        axes: { leftx: axis('LSTICK_LEFT', 'LSTICK_RIGHT'), lefty: axis('LSTICK_UP', 'LSTICK_DOWN'), rightx: axis('RSTICK_LEFT', 'RSTICK_RIGHT'),
+                righty: axis('RSTICK_UP', 'RSTICK_DOWN'), lefttrigger: held.has('ZL') ? 32767 : 0, righttrigger: held.has('ZR') ? 32767 : 0 } });
     }
     const keydown = (e) => {
       const pr = root.querySelector('#pressed');
@@ -265,7 +322,7 @@ register({
         if (d) delete s.pending.devices[d.guid]; else s.keyboard = {}; cancelListening(); await load(); renderAll(); toast('Back to the defaults.', 'ok');
       } catch (e) { toast(errorText(e), 'bad'); }
     };
-    this.cleanup = () => { active = false; offPad(); document.removeEventListener('keydown', keydown, true); document.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); cancelListening(); call('pads.watch', { guid: null }).catch(() => {}); if (dirty()) toast('Controller changes were not saved.', 'warn'); };
+    this.cleanup = () => { active = false; offPad(); offGca(); if (s.gcaTesting) call('pads.gca_stop').catch(() => {}); document.removeEventListener('keydown', keydown, true); document.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); cancelListening(); call('pads.watch', { guid: null }).catch(() => {}); if (dirty()) toast('Controller changes were not saved.', 'warn'); };
     const renderAll = () => { renderTabs(); renderAdapters(); renderDevRow(); renderBody(); updateDirty(); };
     renderAll();
   },

@@ -277,6 +277,20 @@ def folder_size_gb(path: Path) -> float:
     return round(total / 1024 ** 3, 1)
 
 
+# ---------------------------------------------------------------- what the game saw of the controllers (Controllers screen)
+PAD_LINE = re.compile(r"^(?:nn::gca: .+|nn::pad: (?:connected|disconnected|ignored|GameCube|\"|SDL ).+)$", re.M)
+
+
+def pad_report(build: Path, limit: int = 16) -> dict:
+    """The controller lines of the newest game log: the GameCube adapter (nn::gca) and every device (nn::pad)."""
+    log = newest(build, "coastlink_game_*.log")
+    if not log:
+        return {"log": None, "stamp": "", "lines": []}
+    stamp = STAMP.search(log.name)
+    lines = [m.group(0).strip()[:320] for m in PAD_LINE.finditer(read_text(log, 4_000_000))]
+    return {"log": log.name, "stamp": stamp.group(1) if stamp else "", "lines": lines[-limit:]}
+
+
 # ---------------------------------------------------------------- before you play
 def checklist(repo: Path, build: Path, devices: list[dict] | None = None) -> list[dict]:
     status = engine.status(repo, build)
