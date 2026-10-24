@@ -295,6 +295,28 @@ def cleanup_cmd(args):
     return {"removed" if not args.get("dry_run") else "would_remove": cleanup.cleanup(REPO, bool(args.get("dry_run")))}
 
 
+@command("save.import")
+def save_import_cmd(args):
+    import save_import
+    if running("game"):
+        raise RuntimeError("Close the game first: it writes its save while it runs.")
+    return save_import.import_save(build_dir(), Path(args["path"]))
+
+
+@command("save.backups")
+def save_backups(_):
+    import save_import
+    return save_import.list_backups(build_dir())
+
+
+@command("save.restore")
+def save_restore(args):
+    import save_import
+    if running("game"):
+        raise RuntimeError("Close the game first: it writes its save while it runs.")
+    return save_import.restore_backup(build_dir(), str(args.get("name", "")))
+
+
 @command("shaders.status")
 def shaders_status(_):
     return app_backend.shader_status(build_dir())

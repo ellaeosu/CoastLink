@@ -1,4 +1,4 @@
-CoastLink 0.6.2
+CoastLink 0.6.3
 
 Double-click CoastLink.exe. That's it: no console or PowerShell windows.
 
@@ -16,7 +16,7 @@ NEW INSTALL
    done. This reduces preparation stalls; smooth matches still depend on both PCs.
 
 UPGRADING FROM 0.5.x (both PCs)
-Close Smash and the old launcher. Extract CoastLink-0.6.2.zip over your
+Close Smash and the old launcher. Extract CoastLink-0.6.3.zip over your
 existing CoastLink folder (say yes to replace files), then open CoastLink.exe.
 Your compiled game, settings, shader caches and saves stay. No game rebuild.
 The old .cmd and PowerShell launchers are removed after CoastLink.exe has
@@ -46,7 +46,16 @@ The live preview adapts to Xbox, PlayStation, Switch, GameCube, keyboard or raw
 joystick input. Buttons light up and sticks move while you test. Use mouse or
 keyboard for the launcher: controller input never changes settings or navigates.
 Click Save changes to apply your bindings, deadzone, range and trigger settings.
-Real GameCube adapter troubleshooting is still pending.
+PC mode is read through Windows' own controller support (every firmware). If the
+Controllers screen says WinUSB is on the PC-mode device, flip the switch to Wii U
+or remove that driver in Device Manager. Not yet tested on a physical adapter.
+
+SAME SAVE FOR EVERYONE
+Updates & build > Game save > Import save file... loads a Smash save backup you
+have on your PC: a JKSV backup .zip, its folder ("100"), or save_data/system_data.bin.
+Your current save is kept and can be put back there. Each player downloads the
+save themselves; CoastLink never ships or downloads saves. Close the game first.
+BCAT data (Spirit Board events) is not used by this version of the game.
 
 AUDIO
 Master volume and "mute when the game is in the background" apply while you

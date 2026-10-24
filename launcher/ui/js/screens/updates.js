@@ -70,7 +70,11 @@ register({
         <section class="card fill" aria-label="Maintenance"><h2>Maintenance</h2>
           <button class="btn" style="justify-content:space-between" id="resume">Resume or repair build ${icons.arrow}</button>
           <button class="btn" style="justify-content:space-between" id="clean">Clean old normal-build files ${icons.trash}</button>
-          <button class="btn" style="justify-content:space-between" id="open">Open install folder ${icons.folder}</button></section>
+          <button class="btn" style="justify-content:space-between" id="open">Open install folder ${icons.folder}</button>
+          <div class="divider"></div>
+          <div class="row" style="justify-content:space-between"><span style="font-weight:600">Game save</span><span class="small faint">Everyone can use the same save (a JKSV backup)</span></div>
+          <div class="row"><button class="btn grow" id="save-import">Import save file…</button><button class="btn" id="save-folder">Import a folder…</button></div>
+          <div class="row" id="save-restore-row" hidden><select class="input grow" id="save-backup"></select><button class="btn" id="save-restore">Put back</button></div></section>
       </div></div>`;
     call('build.size', {}, { timeout: 120000 }).then((r) => { const d = root.querySelector('#disk'); if (d) d.textContent = `${r.gb} GB`; }).catch(() => {});
     this.off = on('download', (m) => { const box = root.querySelector('#dl'); if (!box) return; box.hidden = false; root.querySelector('#dl-bar').style.width = pct(m.done, m.total) + '%'; root.querySelector('#dl-text').textContent = `${(m.done / 1048576).toFixed(1)} of ${(m.total / 1048576).toFixed(1)} MB`; });
@@ -112,5 +116,27 @@ register({
       } catch (e) { toast(errorText(e), 'bad'); }
     };
     root.querySelector('#open').onclick = () => rust('open_path', { path: app.info.repo });
+    // ---- game save: import a JKSV backup the player has (zip, folder or system_data.bin); the old save is kept and can be put back
+    const loadSaveBackups = () => call('save.backups').then((rows) => {
+      const row = root.querySelector('#save-restore-row');
+      if (!row) return;
+      row.hidden = !rows.length;
+      root.querySelector('#save-backup').innerHTML = rows.map((b) => `<option value="${esc(b.name)}">Save from ${esc(b.name.replace(/^save-(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2}).*$/, '$1-$2-$3 $4:$5'))} (${b.mb} MB)</option>`).join('');
+    }).catch(() => {});
+    const importSave = async (path) => {
+      if (!path) return;
+      if (app.gameRunning) { toast('Close the game first: it writes its save while it runs.', 'warn'); return; }
+      if (!await confirmAction('Replace your save?', 'Your current save is kept as a backup and can be put back here. Spirit Board (BCAT) data is not used by this version of the game.', 'Import')) return;
+      try { const r = await call('save.import', { path }, { timeout: 120000 }); toast(`Save imported (${r.files} file(s)). It's used the next time the game starts.`, 'ok', 8000); loadSaveBackups(); }
+      catch (e) { toast(errorText(e), 'bad', 10000); }
+    };
+    root.querySelector('#save-import').onclick = async () => importSave(await window.__TAURI__.dialog.open({ filters: [{ name: 'Save backup', extensions: ['zip', 'bin'] }] }));
+    root.querySelector('#save-folder').onclick = async () => importSave(await window.__TAURI__.dialog.open({ directory: true }));
+    root.querySelector('#save-restore').onclick = async () => {
+      const name = root.querySelector('#save-backup').value;
+      if (!name || !await confirmAction('Put this save back?', 'The save you have now is kept as a backup too.', 'Put back')) return;
+      try { await call('save.restore', { name }, { timeout: 120000 }); toast('Save put back.', 'ok'); loadSaveBackups(); } catch (e) { toast(errorText(e), 'bad'); }
+    };
+    loadSaveBackups();
   },
 });

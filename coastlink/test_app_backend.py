@@ -375,5 +375,63 @@ class AudioSettingsTests(unittest.TestCase):
                 settings.save_settings(build, {"graphics": {"mute_background": "maybe"}})
 
 
+class SaveImportTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.build = self.root / "build"
+        old = self.build / "saves" / "save" / "save_data"
+        old.mkdir(parents=True)
+        (old / "system_data.bin").write_bytes(b"old progress")
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def jksv_zip(self, entries):
+        path = self.root / "backup.zip"
+        with zipfile.ZipFile(path, "w") as archive:
+            for name, data in entries.items():
+                archive.writestr(name, data)
+        return path
+
+    def test_jksv_backup_replaces_the_save_keeps_a_backup_and_skips_bcat(self):
+        import save_import
+        path = self.jksv_zip({"Super Smash Bros. Ultimate/100/save_data/system_data.bin": b"all unlocked",
+                              "Super Smash Bros. Ultimate/100/save_data/spirits/a.bin": b"spirit",
+                              "BCAT/Super Smash Bros. Ultimate/BCAT/event.bin": b"bcat"})
+        result = save_import.import_save(self.build, path)
+        save = self.build / "saves" / "save"
+        self.assertEqual((save / "save_data" / "system_data.bin").read_bytes(), b"all unlocked")
+        self.assertTrue((save / "save_data" / "spirits" / "a.bin").is_file())
+        self.assertFalse(any("event.bin" in p.name for p in save.rglob("*")))
+        self.assertEqual(result["files"], 2)
+        backups = save_import.list_backups(self.build)
+        self.assertEqual(len(backups), 1)
+        save_import.restore_backup(self.build, backups[0]["name"])
+        self.assertEqual((save / "save_data" / "system_data.bin").read_bytes(), b"old progress")
+
+    def test_a_lone_system_data_bin_replaces_only_the_progress_file(self):
+        import save_import
+        keep = self.build / "saves" / "save" / "save_data" / "mii" / "m.bin"
+        keep.parent.mkdir(parents=True)
+        keep.write_bytes(b"my mii")
+        lone = self.root / "system_data.bin"
+        lone.write_bytes(b"P" * 4096)
+        save_import.import_save(self.build, lone)
+        self.assertEqual((self.build / "saves" / "save" / "save_data" / "system_data.bin").read_bytes(), b"P" * 4096)
+        self.assertEqual(keep.read_bytes(), b"my mii")
+        self.assertEqual(len(save_import.list_backups(self.build)), 1)
+
+    def test_not_a_save_and_unsafe_names_are_refused_without_touching_the_save(self):
+        import save_import
+        with self.assertRaises(save_import.SaveError):
+            save_import.import_save(self.build, self.jksv_zip({"readme.txt": b"hi"}))
+        with self.assertRaises(save_import.SaveError):
+            save_import.import_save(self.build, self.jksv_zip({"100/save_data/system_data.bin": b"x", "100/../evil.bin": b"x"}))
+        self.assertEqual((self.build / "saves" / "save" / "save_data" / "system_data.bin").read_bytes(), b"old progress")
+        with self.assertRaises(save_import.SaveError):
+            save_import.restore_backup(self.build, "../save")
+
+
 if __name__ == "__main__":
     unittest.main()

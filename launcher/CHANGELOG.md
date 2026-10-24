@@ -1,3 +1,11 @@
+# 0.6.3
+
+- Updates & build > Game save > Import save file...: load a Smash save backup you have (a JKSV
+  backup .zip, its "100" folder, or save_data/system_data.bin) so everyone can play with the
+  same save. The current save is backed up first and can be put back. BCAT (Spirit Board)
+  data is skipped: this runtime does not read it. CoastLink never ships or downloads saves.
+- Hidden rows stay hidden (the update download bar and the save backup list).
+
 # 0.6.2
 
 - The live controller preview draws the controller you plugged in: Xbox 360, Xbox One,

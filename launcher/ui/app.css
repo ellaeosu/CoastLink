@@ -8,6 +8,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.4 var(--body); overflow: hidden; }
 button, input, select { font: inherit; color: inherit; }
 ::selection { background: var(--red); color: var(--red-ink); }
