@@ -69,6 +69,10 @@ class _Sdl:
         lib.SDL_GetJoystickAxis.argtypes = [ctypes.c_void_p, ctypes.c_int]; lib.SDL_GetJoystickAxis.restype = ctypes.c_int16
         lib.SDL_GetJoystickHat.argtypes = [ctypes.c_void_p, ctypes.c_int]; lib.SDL_GetJoystickHat.restype = ctypes.c_uint8
         lib.SDL_UpdateJoysticks.argtypes = []
+        lib.SDL_AttachVirtualJoystick.argtypes = [ctypes.c_void_p]; lib.SDL_AttachVirtualJoystick.restype = ctypes.c_uint32
+        lib.SDL_DetachVirtualJoystick.argtypes = [ctypes.c_uint32]; lib.SDL_DetachVirtualJoystick.restype = ctypes.c_bool
+        lib.SDL_SetJoystickVirtualAxis.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int16]; lib.SDL_SetJoystickVirtualAxis.restype = ctypes.c_bool
+        lib.SDL_SetJoystickVirtualButton.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_bool]; lib.SDL_SetJoystickVirtualButton.restype = ctypes.c_bool
         lib.SDL_UpdateGamepads.argtypes = []
         lib.SDL_free.argtypes = [ctypes.c_void_p]
         lib.SDL_SetHint.argtypes = [ctypes.c_char_p, ctypes.c_char_p]; lib.SDL_SetHint.restype = ctypes.c_bool
@@ -91,9 +95,17 @@ class _Sdl:
         while True:
             fn, result = self.tasks.get()
             try:
-                result.put((True, fn(self.lib) if self.lib else None))
+                value = fn(self.lib) if self.lib else None
+                if result is not None:
+                    result.put((True, value))
             except Exception as error:
-                result.put((False, error))
+                if result is not None:
+                    result.put((False, error))
+
+    def post(self, fn):
+        """Queue fn for the SDL thread without waiting for it."""
+        if not self.error:
+            self.tasks.put((fn, None))
 
     def call(self, fn, timeout=5.0):
         if self.error:
@@ -376,8 +388,13 @@ def gamecube_adapters() -> list[dict]:
     return found
 
 
+# ---------------------------------------------------------------- GameCube adapter in Wii U / Switch mode (WinUSB)
 GCA_BUTTONS = (("A", 1, 0x01), ("B", 1, 0x02), ("X", 1, 0x04), ("Y", 1, 0x08), ("Left", 1, 0x10), ("Right", 1, 0x20),
                ("Down", 1, 0x40), ("Up", 1, 0x80), ("Start", 2, 0x01), ("Z", 2, 0x02), ("R", 2, 0x04), ("L", 2, 0x08))
+# the SDL gamepad button each adapter bit becomes, as in nnpad_gca.c (A south, B east, X west, Y north, Z misc2, L / R clicks
+# the shoulders; the analog L / R are the trigger axes)
+GCA_SDL_BUTTONS = ((0, 1, 0x01), (1, 1, 0x02), (2, 1, 0x04), (3, 1, 0x08), (13, 1, 0x10), (14, 1, 0x20), (12, 1, 0x40), (11, 1, 0x80),
+                   (6, 2, 0x01), (21, 2, 0x02), (10, 2, 0x04), (9, 2, 0x08))
 _gca_stop = threading.Event()
 
 
@@ -395,34 +412,78 @@ def parse_gca_report(report: bytes) -> list[dict] | None:
     return ports
 
 
-def gamecube_adapter_test(emit, seconds: float = 15.0) -> dict:
-    """Read the GameCube adapter in Wii U / Switch mode (WinUSB) for a few seconds, the way the game does (nnpad_gca.c), and
-    report every port live through emit(ports). The adapter is released at the end (WinUSB lets one program have it)."""
-    if os.name != "nt":
-        return {"ok": False, "error": "Only on Windows."}
-    from ctypes import wintypes
-    setup = ctypes.WinDLL("setupapi", use_last_error=True)
-    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    try:
-        winusb = ctypes.WinDLL("winusb", use_last_error=True)
-    except OSError:
-        return {"ok": False, "error": "Windows' WinUSB library is missing."}
+def gca_stick(value: int, origin: int, invert: bool) -> int:
+    """nnpad_gca.c stick16: counts from the origin over 88 to full deflection, clamped."""
+    f = max(-1.0, min(1.0, (value - origin) / 88.0))
+    return int((-f if invert else f) * 32767)
 
-    class Guid(ctypes.Structure):
-        _fields_ = [("d1", ctypes.c_uint32), ("d2", ctypes.c_uint16), ("d3", ctypes.c_uint16), ("d4", ctypes.c_ubyte * 8)]
 
-    class IfaceData(ctypes.Structure):
-        _fields_ = [("size", wintypes.DWORD), ("guid", Guid), ("flags", wintypes.DWORD), ("reserved", ctypes.c_void_p)]
-    usb_device = Guid(0xA5DCBF10, 0x6530, 0x11D2, (ctypes.c_ubyte * 8)(0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED))
-    setup.SetupDiGetClassDevsW.restype = ctypes.c_void_p
-    setup.SetupDiGetClassDevsW.argtypes = [ctypes.POINTER(Guid), wintypes.LPCWSTR, wintypes.HWND, wintypes.DWORD]
-    setup.SetupDiEnumDeviceInterfaces.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(Guid), wintypes.DWORD, ctypes.POINTER(IfaceData)]
-    setup.SetupDiGetDeviceInterfaceDetailW.argtypes = [ctypes.c_void_p, ctypes.POINTER(IfaceData), ctypes.c_void_p, wintypes.DWORD,
-                                                       ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
-    setup.SetupDiDestroyDeviceInfoList.argtypes = [ctypes.c_void_p]
-    paths = []
-    info = setup.SetupDiGetClassDevsW(ctypes.byref(usb_device), None, None, 0x12)      # DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
-    if info and info != ctypes.c_void_p(-1).value:
+def gca_trigger(value: int, rest: int) -> int:
+    """nnpad_gca.c trig16: the rest point to 255 as the virtual trigger's -32768 .. 32767."""
+    f = max(0.0, min(1.0, (value - rest) / float(255 - rest)))
+    return int(-32768 + f * 65535)
+
+
+_winapi_cache = None
+
+
+def _winapi():
+    """setupapi, kernel32 and winusb with the prototypes used here (None when WinUSB is missing)."""
+    global _winapi_cache
+    if _winapi_cache is None:
+        from ctypes import wintypes
+        setup = ctypes.WinDLL("setupapi", use_last_error=True)
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        try:
+            winusb = ctypes.WinDLL("winusb", use_last_error=True)
+        except OSError:
+            return None
+        setup.SetupDiGetClassDevsW.restype = ctypes.c_void_p
+        setup.SetupDiGetClassDevsW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR, wintypes.HWND, wintypes.DWORD]
+        setup.SetupDiEnumDeviceInterfaces.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p]
+        setup.SetupDiGetDeviceInterfaceDetailW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD,
+                                                           ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+        setup.SetupDiDestroyDeviceInfoList.argtypes = [ctypes.c_void_p]
+        kernel.CreateFileW.restype = ctypes.c_void_p
+        kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p]
+        kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+        winusb.WinUsb_Initialize.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+        winusb.WinUsb_Free.argtypes = [ctypes.c_void_p]
+        winusb.WinUsb_SetPipePolicy.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, wintypes.ULONG, wintypes.ULONG, ctypes.c_void_p]
+        winusb.WinUsb_WritePipe.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_void_p, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG), ctypes.c_void_p]
+        winusb.WinUsb_ReadPipe.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_void_p, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG), ctypes.c_void_p]
+        _winapi_cache = (setup, kernel, winusb)
+    return _winapi_cache
+
+
+class _WinUsbAdapter:
+    """The adapter opened over WinUSB the way nnpad_gca.c opens it (one program at a time can have it)."""
+    BUSY = ("The adapter has WinUSB but another program has it open: close Dolphin / Slippi and the game, or in Steam "
+            "turn off Settings > Controller > GameCube Configuration Support")
+
+    def __init__(self):
+        self.handle = None
+        self.usb = ctypes.c_void_p()
+
+    @staticmethod
+    def paths() -> list[str]:
+        """Interface paths of present USB devices 057E:0337 (the USB device interface, which WinUSB opens as libusb does)."""
+        api = _winapi()
+        if os.name != "nt" or not api:
+            return []
+        from ctypes import wintypes
+        setup = api[0]
+
+        class Guid(ctypes.Structure):
+            _fields_ = [("d1", ctypes.c_uint32), ("d2", ctypes.c_uint16), ("d3", ctypes.c_uint16), ("d4", ctypes.c_ubyte * 8)]
+
+        class IfaceData(ctypes.Structure):
+            _fields_ = [("size", wintypes.DWORD), ("guid", Guid), ("flags", wintypes.DWORD), ("reserved", ctypes.c_void_p)]
+        usb_device = Guid(0xA5DCBF10, 0x6530, 0x11D2, (ctypes.c_ubyte * 8)(0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED))
+        found = []
+        info = setup.SetupDiGetClassDevsW(ctypes.byref(usb_device), None, None, 0x12)      # DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
+        if not info or info == ctypes.c_void_p(-1).value:
+            return found
         try:
             index = 0
             while True:
@@ -438,50 +499,82 @@ def gamecube_adapter_test(emit, seconds: float = 15.0) -> dict:
                 if setup.SetupDiGetDeviceInterfaceDetailW(info, ctypes.byref(data), buf, need.value, None, None):
                     path = ctypes.wstring_at(ctypes.addressof(buf) + 4)
                     if "vid_057e&pid_0337" in path.lower():
-                        paths.append(path)
+                        found.append(path)
         finally:
             setup.SetupDiDestroyDeviceInfoList(info)
-    if not paths:
-        return {"ok": False, "error": "No GameCube adapter in Wii U / Switch mode is plugged in (flip its switch to Wii U), "
-                                      "or it has no WinUSB driver (Zadig: WinUSB on \"WUP-028\")."}
-    kernel.CreateFileW.restype = ctypes.c_void_p
-    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p]
-    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
-    winusb.WinUsb_Initialize.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
-    winusb.WinUsb_Free.argtypes = [ctypes.c_void_p]
-    winusb.WinUsb_SetPipePolicy.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, wintypes.ULONG, wintypes.ULONG, ctypes.c_void_p]
-    winusb.WinUsb_WritePipe.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_void_p, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG), ctypes.c_void_p]
-    winusb.WinUsb_ReadPipe.argtypes = [ctypes.c_void_p, ctypes.c_ubyte, ctypes.c_void_p, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG), ctypes.c_void_p]
-    busy = ("The adapter has WinUSB but another program has it open: close Dolphin / Slippi and the game, or in Steam "
-            "turn off Settings > Controller > GameCube Configuration Support")
-    # read | write, share read | write, OPEN_EXISTING, FILE_FLAG_OVERLAPPED (WinUSB wants it) | normal
-    handle = kernel.CreateFileW(paths[0], 0xC0000000, 0x3, None, 3, 0x40000080, None)
-    if not handle or handle == ctypes.c_void_p(-1).value:
-        code = ctypes.get_last_error()
-        return {"ok": False, "error": f"{busy} (Windows error {code})." if code in (5, 32, 170)
-                else f"The adapter could not be opened (Windows error {code}). Unplug it and plug it in again."}
-    usb = ctypes.c_void_p()
-    try:
-        if not winusb.WinUsb_Initialize(handle, ctypes.byref(usb)):
+        return found
+
+    def open(self) -> str | None:
+        """None when the adapter is open and sending reports; else why not, in words for the player."""
+        api = _winapi()
+        if not api:
+            return "Windows' WinUSB library is missing."
+        setup, kernel, winusb = api
+        paths = self.paths()
+        if not paths:
+            return ("No GameCube adapter in Wii U / Switch mode is plugged in (flip its switch to Wii U), "
+                    "or it has no WinUSB driver (Zadig: WinUSB on \"WUP-028\").")
+        from ctypes import wintypes
+        # read | write, share read | write, OPEN_EXISTING, FILE_FLAG_OVERLAPPED (WinUSB wants it) | normal
+        handle = kernel.CreateFileW(paths[0], 0xC0000000, 0x3, None, 3, 0x40000080, None)
+        if not handle or handle == ctypes.c_void_p(-1).value:
             code = ctypes.get_last_error()
-            usb = ctypes.c_void_p()
-            return {"ok": False, "error": f"{busy} (Windows error {code})." if code in (5, 32, 170)
-                    else f"WinUSB could not use the adapter (Windows error {code}). Reinstall WinUSB for \"WUP-028\" with Zadig."}
+            return f"{self.BUSY} (Windows error {code})." if code in (5, 32, 170) else \
+                f"The adapter could not be opened (Windows error {code}). Unplug it and plug it in again."
+        self.handle = handle
+        if not winusb.WinUsb_Initialize(handle, ctypes.byref(self.usb)):
+            code = ctypes.get_last_error()
+            self.usb = ctypes.c_void_p()
+            self.close()
+            return f"{self.BUSY} (Windows error {code})." if code in (5, 32, 170) else \
+                f"WinUSB could not use the adapter (Windows error {code}). Reinstall WinUSB for \"WUP-028\" with Zadig."
         timeout = wintypes.ULONG(100)
-        winusb.WinUsb_SetPipePolicy(usb, 0x81, 0x03, 4, ctypes.byref(timeout))            # PIPE_TRANSFER_TIMEOUT
+        winusb.WinUsb_SetPipePolicy(self.usb, 0x81, 0x03, 4, ctypes.byref(timeout))       # PIPE_TRANSFER_TIMEOUT
+        if not self.write(b"\x13"):                                                       # start the reports
+            code = ctypes.get_last_error()
+            self.close()
+            return f"The adapter does not accept the start command (Windows error {code})."
+        return None
+
+    def read(self, buf) -> int:
+        from ctypes import wintypes
+        got = wintypes.ULONG(0)
+        return got.value if _winapi()[2].WinUsb_ReadPipe(self.usb, 0x81, buf, 37, ctypes.byref(got), None) else 0
+
+    def write(self, data: bytes) -> bool:
+        from ctypes import wintypes
+        out = (ctypes.c_ubyte * len(data))(*data)
         written = wintypes.ULONG(0)
-        start = (ctypes.c_ubyte * 1)(0x13)
-        if not winusb.WinUsb_WritePipe(usb, 0x02, start, 1, ctypes.byref(written), None):
-            return {"ok": False, "error": f"The adapter does not accept the start command (Windows error {ctypes.get_last_error()})."}
+        return bool(self.usb) and bool(_winapi()[2].WinUsb_WritePipe(self.usb, 0x02, out, len(data), ctypes.byref(written), None))
+
+    def close(self):
+        api = _winapi()
+        if self.usb:
+            api[2].WinUsb_Free(self.usb)
+            self.usb = ctypes.c_void_p()
+        if self.handle:
+            api[1].CloseHandle(self.handle)
+            self.handle = None
+
+
+def gamecube_adapter_test(emit, seconds: float = 15.0) -> dict:
+    """Read the GameCube adapter in Wii U / Switch mode (WinUSB) for a few seconds, the way the game does (nnpad_gca.c), and
+    report every port live through emit(ports). The adapter is released at the end (WinUSB lets one program have it)."""
+    if os.name != "nt":
+        return {"ok": False, "error": "Only on Windows."}
+    gca_live.stop()
+    adapter = _WinUsbAdapter()
+    error = adapter.open()
+    if error:
+        return {"ok": False, "error": error}
+    try:
         _gca_stop.clear()
         buf = (ctypes.c_ubyte * 37)()
-        got = wintypes.ULONG(0)
         reports, last, ports, seen = 0, 0.0, None, set()
         end = time.monotonic() + seconds
         while time.monotonic() < end and not _gca_stop.is_set():
-            if not winusb.WinUsb_ReadPipe(usb, 0x81, buf, 37, ctypes.byref(got), None):
-                continue
-            parsed = parse_gca_report(bytes(buf[:got.value]))
+            got = adapter.read(buf)
+            parsed = parse_gca_report(bytes(buf[:got])) if got else None
             if not parsed:
                 continue
             reports += 1
@@ -498,13 +591,183 @@ def gamecube_adapter_test(emit, seconds: float = 15.0) -> dict:
                 "summary": f"Adapter works: {reports} reports read; controller(s) in port(s) {', '.join(map(str, sorted(seen)))}." if seen
                 else f"Adapter works ({reports} reports read), but no controller answered: check the plugs (ports 1–4)."}
     finally:
-        if usb:
-            winusb.WinUsb_Free(usb)
-        kernel.CloseHandle(handle)
+        adapter.close()
 
 
 def stop_gamecube_adapter_test():
     _gca_stop.set()
+
+
+class VirtualJoystickDesc(ctypes.Structure):
+    """SDL_VirtualJoystickDesc of SDL 3.4 (SDL_joystick.h)."""
+    _fields_ = [("version", ctypes.c_uint32), ("type", ctypes.c_uint16), ("padding", ctypes.c_uint16),
+                ("vendor_id", ctypes.c_uint16), ("product_id", ctypes.c_uint16), ("naxes", ctypes.c_uint16), ("nbuttons", ctypes.c_uint16),
+                ("nballs", ctypes.c_uint16), ("nhats", ctypes.c_uint16), ("ntouchpads", ctypes.c_uint16), ("nsensors", ctypes.c_uint16),
+                ("padding2", ctypes.c_uint16 * 2), ("button_mask", ctypes.c_uint32), ("axis_mask", ctypes.c_uint32),
+                ("name", ctypes.c_char_p), ("touchpads", ctypes.c_void_p), ("sensors", ctypes.c_void_p), ("userdata", ctypes.c_void_p),
+                ("Update", ctypes.c_void_p), ("SetPlayerIndex", ctypes.c_void_p), ("Rumble", ctypes.c_void_p), ("RumbleTriggers", ctypes.c_void_p),
+                ("SetLED", ctypes.c_void_p), ("SendEffect", ctypes.c_void_p), ("SetSensorsEnabled", ctypes.c_void_p), ("Cleanup", ctypes.c_void_p)]
+
+
+RUMBLE_FN = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_uint16, ctypes.c_uint16)
+
+
+class _GcaLive:
+    """While the Controllers screen is open: the adapter (Wii U mode, WinUSB) read here, each port shown as the same SDL virtual
+    gamepad the game makes for it (nnpad_gca.c: vendor 057E, product 0337, "GameCube Controller (port N)"), so its GUID, the
+    preview, the bindings and the player slot are the game's. Stopped (the adapter released) when the screen closes or a
+    game starts. SDL calls run on the SDL thread; the reader thread only reads the adapter."""
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.report = None
+        self.thread = None
+        self.halt = threading.Event()
+        self.ready = threading.Event()
+        self.error = None
+        self.ports = {}
+        self.rumble = [0, 0, 0, 0]
+        self.callback = RUMBLE_FN(self._rumble)            # kept alive: SDL calls it
+
+    def _rumble(self, userdata, low, high):
+        self.rumble[int(userdata or 0) & 3] = 1 if (low or high) else 0
+        return True
+
+    def running(self) -> bool:
+        return bool(self.thread and self.thread.is_alive())
+
+    def start(self) -> dict:
+        if not self.running():
+            self.halt.clear()
+            self.ready.clear()
+            self.error, self.report = None, None
+            self.thread = threading.Thread(target=self._loop, daemon=True, name="gca-live")
+            self.thread.start()
+            self.ready.wait(3)
+        if self.error:
+            return {"on": False, "error": self.error}
+        deadline = time.monotonic() + 1.0                   # five reports to find each stick's centre, then the ports exist
+        while time.monotonic() < deadline:
+            sdl().call(self.apply)
+            if self.report and all(self.ports.get(p, {}).get("id") for p in range(4) if self.report[1 + 9 * p] & 0x30):
+                break
+            time.sleep(0.03)
+        return {"on": True, "ports": sorted(p + 1 for p, st in self.ports.items() if st.get("id"))}
+
+    def stop(self):
+        self.halt.set()
+        if self.thread:
+            self.thread.join(2)
+        try:
+            sdl().call(self._detach_all)
+        except (OSError, queue.Empty):
+            pass
+
+    def _loop(self):
+        adapter = _WinUsbAdapter()
+        self.error = adapter.open()
+        self.ready.set()
+        if self.error:
+            return
+        buf = (ctypes.c_ubyte * 37)()
+        posted, sent = 0.0, None
+        try:
+            while not self.halt.is_set():
+                if adapter.read(buf) != 37 or buf[0] != 0x21:
+                    continue
+                with self.lock:
+                    self.report = bytes(buf)
+                if time.monotonic() - posted > 0.03:
+                    posted = time.monotonic()
+                    sdl().post(self.apply)
+                # a motor runs for a port whose controller was asked to rumble and that has the adapter's power cable
+                want = bytes([0x11] + [1 if self.rumble[p] and buf[1 + 9 * p] & 0x04 else 0 for p in range(4)])
+                if want != sent and adapter.write(want):
+                    sent = want
+        finally:
+            if sent and any(sent[1:]):
+                adapter.write(b"\x11\x00\x00\x00\x00")
+            adapter.close()
+
+    def apply(self, lib):
+        """SDL thread: the newest report into the virtual gamepads (attached after five reports, detached when unplugged)."""
+        with self.lock:
+            report = self.report
+        if report is None or self.halt.is_set():
+            return
+        for p in range(4):
+            s = report[1 + 9 * p: 10 + 9 * p]
+            st = self.ports.setdefault(p, {})
+            if not s[0] & 0x30:
+                if st:
+                    self._detach(lib, p)
+                continue
+            if not st.get("calibrated"):
+                acc = st.setdefault("acc", [0] * 6)
+                for i in range(6):
+                    acc[i] += s[3 + i]
+                st["seen"] = st.get("seen", 0) + 1
+                if st["seen"] < 5:
+                    continue
+                st["origin"] = [o if 78 < o < 178 else 128 for o in (acc[i] // 5 for i in range(4))]
+                st["rest"] = [r if r < 215 else 30 for r in (acc[4 + i] // 5 for i in range(2))]
+                st["calibrated"] = True
+                self._attach(lib, p)
+            joystick = st.get("js")
+            if not joystick:
+                continue
+            buttons = 0
+            for button, byte, mask in GCA_SDL_BUTTONS:
+                if s[byte] & mask:
+                    buttons |= 1 << button
+            changed = buttons ^ st["btn"]
+            for button in range(26):
+                if changed >> button & 1:
+                    lib.SDL_SetJoystickVirtualButton(joystick, button, bool(buttons >> button & 1))
+            st["btn"] = buttons
+            origin, rest = st["origin"], st["rest"]
+            axes = [gca_stick(s[3], origin[0], False), gca_stick(s[4], origin[1], True), gca_stick(s[5], origin[2], False),
+                    gca_stick(s[6], origin[3], True), gca_trigger(s[7], rest[0]), gca_trigger(s[8], rest[1])]
+            for i, value in enumerate(axes):
+                if value != st["ax"][i]:
+                    lib.SDL_SetJoystickVirtualAxis(joystick, i, value)
+                    st["ax"][i] = value
+        lib.SDL_UpdateJoysticks()
+
+    def _attach(self, lib, p):
+        st = self.ports[p]
+        st["name"] = f"GameCube Controller (port {p + 1})".encode()
+        desc = VirtualJoystickDesc()
+        desc.version = ctypes.sizeof(VirtualJoystickDesc)
+        desc.type, desc.vendor_id, desc.product_id = 1, 0x057E, 0x0337      # SDL_JOYSTICK_TYPE_GAMEPAD, as nnpad_gca.c
+        desc.naxes, desc.nbuttons = 6, 26                                   # SDL_GAMEPAD_AXIS_COUNT, SDL_GAMEPAD_BUTTON_COUNT
+        desc.name, desc.userdata = st["name"], p
+        desc.Rumble = ctypes.cast(self.callback, ctypes.c_void_p)
+        st["desc"] = desc
+        jid = lib.SDL_AttachVirtualJoystick(ctypes.byref(desc))
+        if not jid:
+            return
+        joystick = lib.SDL_OpenJoystick(jid)
+        if joystick:
+            for i in range(4):
+                lib.SDL_SetJoystickVirtualAxis(joystick, i, 0)
+            lib.SDL_SetJoystickVirtualAxis(joystick, 4, -32768)              # a virtual trigger rests at the bottom of its range
+            lib.SDL_SetJoystickVirtualAxis(joystick, 5, -32768)
+        st.update(id=jid, js=joystick, btn=0, ax=[0, 0, 0, 0, -32768, -32768])
+
+    def _detach(self, lib, p):
+        st = self.ports.pop(p, {})
+        if st.get("js"):
+            lib.SDL_CloseJoystick(st["js"])
+        if st.get("id"):
+            lib.SDL_DetachVirtualJoystick(st["id"])
+
+    def _detach_all(self, lib):
+        for p in list(self.ports):
+            self._detach(lib, p)
+        lib.SDL_UpdateJoysticks()
+
+
+gca_live = _GcaLive()
 
 
 class _WaveOutCaps(ctypes.Structure):

@@ -43,13 +43,14 @@ export const modelName = (device) => (device && typeof device === 'object' && de
 export function controllerDiagram(device, keyboard = false, raw = false) {
   if (keyboard) return `<div class="keyboard-preview" aria-label="Live keyboard preview">${['L', 'ZL', 'MINUS', 'PLUS', 'R', 'ZR', 'UP', 'X', 'Y', 'LEFT', 'DOWN', 'RIGHT', 'A', 'B'].map((c) => `<span data-key-control="${c}" class="preview-key">${esc({ MINUS: '−', PLUS: '+', UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→' }[c] || c)}</span>`).join('')}</div>`;
   if (raw) return `<div class="raw-preview"><span class="small faint">Raw joystick · Windows button numbers</span><div class="raw-buttons">${Array.from({ length: 12 }, (_, i) => `<span class="preview-key" data-source="button${i}">${i}</span>`).join('')}</div><div class="raw-hat">${['up', 'left', 'down', 'right'].map((dir, i) => `<span class="preview-key" data-source="hat0${dir}">${['↑', '←', '↓', '→'][i]}</span>`).join('')}</div><span class="small faint">Stick axes appear in the readouts.</span></div>`;
-  const m = modelOf(device), art = padArt(m);
+  const m = modelOf(device), art = padArt(m, typeof device === 'object' && device?.vendor === 0x057E);
   return `<svg class="pad-svg model-${m}" viewBox="${art.viewBox}" role="img" aria-label="${esc(MODEL_NAMES[m])} live input diagram">${art.svg}</svg>`;
 }
 
 export function paintController(root, state, deadzone = 0.1, threshold = 0.33) {
   const sources = pressedSources(state, threshold);
-  root.querySelectorAll('[data-source]').forEach((node) => node.classList.toggle('lit', sources.includes(node.dataset.source)));
+  root.querySelectorAll('[data-source]').forEach((node) => node.classList.toggle('lit',
+    sources.includes(node.dataset.source) || (node.dataset.alt || '').split(' ').some((alt) => alt && sources.includes(alt))));
   for (const [side, names, raw] of [['left', ['leftx', 'lefty'], 0], ['right', ['rightx', 'righty'], 2]]) {
     const x = axisValue(state?.axes, names[0], raw), y = axisValue(state?.axes, names[1], raw + 1);
     const knob = root.querySelector(`[data-stick="${side}"]`), well = +(knob?.dataset.well || 30);

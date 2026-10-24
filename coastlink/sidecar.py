@@ -185,6 +185,9 @@ def launch(args):
     for key in ("code", "server", "name"):
         if args.get(key):
             cmd += ["--" + key, str(args[key])]
+    if os.name == "nt":                     # the game reads the GameCube adapter itself: CoastLink lets go of it first
+        from pads import gca_live
+        gca_live.stop()
     JOBS["game"] = Job("game", cmd)
     return {"started": True, "mode": mode}
 
@@ -418,6 +421,18 @@ def pads_devices(_):
 def pads_adapters(_):
     from pads import gamecube_adapters
     return gamecube_adapters()
+
+
+@command("pads.gca_live")
+def pads_gca_live(args):
+    """The Wii U-mode adapter's ports as controllers in the Controllers screen (on), or the adapter released (off)."""
+    from pads import gca_live
+    if not args.get("on"):
+        gca_live.stop()
+        return {"on": False}
+    if running("game"):
+        return {"on": False, "error": "The game is using the adapter: its ports show here when the game is closed."}
+    return gca_live.start()
 
 
 @command("pads.gca_test")

@@ -22,18 +22,29 @@ const NAMES = {
   xbox: { south: 'A', east: 'B', west: 'X', north: 'Y', leftshoulder: 'LB', rightshoulder: 'RB', lefttrigger: 'LT', righttrigger: 'RT', back: 'View', start: 'Menu', guide: 'Xbox', leftstick: 'LS press', rightstick: 'RS press' },
   ps: { south: 'Cross', east: 'Circle', west: 'Square', north: 'Triangle', leftshoulder: 'L1', rightshoulder: 'R1', lefttrigger: 'L2', righttrigger: 'R2', back: 'Share', start: 'Options', guide: 'PS', leftstick: 'L3', rightstick: 'R3' },
   nin: { south: 'B', east: 'A', west: 'Y', north: 'X', leftshoulder: 'L', rightshoulder: 'R', lefttrigger: 'ZL', righttrigger: 'ZR', back: '−', start: '+', guide: 'Home', leftstick: 'LS press', rightstick: 'RS press' },
-  gc: { south: 'A', east: 'X', west: 'B', north: 'Y', rightshoulder: 'Z', lefttrigger: 'L', righttrigger: 'R', start: 'Start' },
+  // GameCube adapter in PC mode (SDL's layout for it: A b1 = south, B = east, X = west, Y = north, Z = right shoulder)
+  gc: { south: 'A', east: 'B', west: 'X', north: 'Y', rightshoulder: 'Z', lefttrigger: 'L', righttrigger: 'R', start: 'Start', back: 'None' },
+  // GameCube adapter in Wii U mode (nnpad_gca.c: Z = misc2, the full L / R clicks = shoulders, the analog L / R = triggers)
+  gcw: { south: 'A', east: 'B', west: 'X', north: 'Y', misc2: 'Z', leftshoulder: 'L click', rightshoulder: 'R click', lefttrigger: 'L', righttrigger: 'R', start: 'Start' },
 };
 const COMMON = { dpup: 'D-pad up', dpdown: 'D-pad down', dpleft: 'D-pad left', dpright: 'D-pad right', none: 'Not bound' };
 const family = (kind = '') => /PlayStation/.test(kind) ? 'ps' : /GameCube/.test(kind) ? 'gc' : /Switch|Joy-Con/.test(kind) ? 'nin' : 'xbox';
-function sourceName(src, kind) {
-  return String(src).split(',').map((s) => s.trim()).map((s) => NAMES[family(kind)][s] || COMMON[s] ||
+/** the naming family of a device row (or of a kind text) */
+const famOf = (d) => !d ? 'xbox' : typeof d === 'string' ? family(d) : d.model === 'gamecube' ? (d.vendor === 0x057E ? 'gcw' : 'gc') : family(d.kind);
+function sourceName(src, dev) {
+  const names = NAMES[famOf(dev)];
+  return String(src).split(',').map((s) => s.trim()).map((s) => names[s] || COMMON[s] ||
     s.replace(/^button(\d+)$/, 'Button $1').replace(/^axis(\d+)([+-]?)$/, 'Axis $1$2').replace(/^hat(\d+)(\w+)$/, 'Hat $2').replace(/^left(x|y)([+-])$/, 'Left stick $1$2').replace(/^right(x|y)([+-])$/, 'Right stick $1$2')).join(' / ');
 }
-function defaultSource(control, layout, kind, raw = false) {
+// the game's built-in layout for a GameCube adapter port in Wii U mode (nnpad_sdl.c def_map, d->gca): Z acts as ZR
+const GCW_DEFAULT = { A: 'south', B: 'east', X: 'west', Y: 'north', L: 'leftshoulder', R: 'rightshoulder', ZL: 'none', ZR: 'misc2', PLUS: 'start',
+  MINUS: 'none', STICK_L: 'none', STICK_R: 'none', UP: 'dpup', DOWN: 'dpdown', LEFT: 'dpleft', RIGHT: 'dpright' };
+function defaultSource(control, layout, dev, raw = false) {
   if (raw) return { A: 'button1', B: 'button0', X: 'button3', Y: 'button2', L: 'button4', R: 'button5', ZL: 'button6', ZR: 'button7', PLUS: 'button9', MINUS: 'button8', STICK_L: 'button10', STICK_R: 'button11', UP: 'hat0up', DOWN: 'hat0down', LEFT: 'hat0left', RIGHT: 'hat0right' }[control];
+  const fam = famOf(dev);
+  if (fam === 'gcw' && control in GCW_DEFAULT) return GCW_DEFAULT[control];
   if (FIXED[control]) return FIXED[control];
-  const labels = layout === 'labels' || (layout !== 'positional' && /GameCube/.test(kind));
+  const labels = layout === 'labels' || (layout !== 'positional' && fam === 'gc');
   return (labels ? { A: 'south', B: 'east', X: 'west', Y: 'north' } : { A: 'east', B: 'south', X: 'north', Y: 'west' })[control];
 }
 function keyName(e) {
@@ -52,8 +63,13 @@ register({
     this.cleanup = () => { active = false; };
     const s = { player: 1, devices: [], cfg: null, settings: null, adapters: [], profiles: [], pending: { players: {}, devices: {} }, keyboard: {}, kbPlayer: null, live: null, listen: null };
     const load = async () => {
-      [s.devices, s.cfg, s.settings, s.adapters, s.profiles, s.report] = await Promise.all([call('pads.devices'), call('pads.config'), call('settings.get'),
-        call('pads.adapters').catch(() => []), call('pads.profiles', { action: 'list' }).then((r) => r.profiles).catch(() => []),
+      // a GameCube adapter in Wii U mode is read only by the game: CoastLink opens it while this screen is up, so its ports
+      // show here as the same controllers the game makes (same identity: bindings carry over), and lets go when you leave
+      s.adapters = await call('pads.adapters').catch(() => []);
+      s.gca = s.adapters.some((a) => a.mode === 'wiiu' && a.usable) && !s.gcaTesting
+        ? await call('pads.gca_live', { on: true }, { timeout: 15000 }).catch((e) => ({ on: false, error: errorText(e) })) : null;
+      [s.devices, s.cfg, s.settings, s.profiles, s.report] = await Promise.all([call('pads.devices'), call('pads.config'), call('settings.get'),
+        call('pads.profiles', { action: 'list' }).then((r) => r.profiles).catch(() => []),
         call('pads.game_report').catch(() => ({ lines: [] }))]);
       if (!s.kbChanged) s.kbPlayer = s.settings.controller.keyboard_player;
     };
@@ -65,7 +81,7 @@ register({
     const kbHere = (p) => String(s.kbPlayer) === String(p) || (!deviceOf(p) && kbIs(p));
     const devVal = (guid, key) => {
       const d = s.devices.find((v) => v.guid === guid), pending = s.pending.devices[guid];
-      const type = d?.type_key || ({ ps: 'playstation', nin: 'switch', gc: 'gamecube', xbox: 'xbox' }[family(d?.kind)]);
+      const type = d?.model === 'gamecube' ? 'gamecube' : d?.type_key || ({ ps: 'playstation', nin: 'switch', gc: 'gamecube', xbox: 'xbox' }[family(d?.kind)]);
       const device = pending && Object.hasOwn(pending, key) ? pending[key] : s.cfg.devices[guid]?.[key];
       return device ?? s.cfg.types?.[type]?.[key] ?? s.cfg.general[key];
     };
@@ -93,7 +109,9 @@ register({
           <span class="small muted grow">${esc(a.advice)}</span>
           ${a.mode === 'wiiu' && a.usable ? '<button class="btn" id="gca-test">Test adapter</button>' : ''}</div>`).join('')}
         <div class="gca-ports" id="gca-ports" hidden>${[1, 2, 3, 4].map((p) => `<div class="gca-port" data-port="${p}"><span class="rj-key">Port ${p}</span><span class="gca-state small faint">waiting…</span></div>`).join('')}</div>
-        <span class="small" id="gca-result"></span>
+        <span class="small" id="gca-result">${s.gca?.error ? status('warn', s.gca.error)
+          : s.gca?.on ? status('ok', s.gca.ports?.length ? `Port${s.gca.ports.length > 1 ? 's' : ''} ${s.gca.ports.join(', ')} ready: pick ${s.gca.ports.length > 1 ? 'one' : 'it'} under Input Device to see it and change its buttons.`
+            : 'No controller is plugged into the adapter.') : ''}</span>
         ${lines.length ? `<details><summary class="small" style="cursor:pointer;min-height:28px">What the game saw last time it started</summary>
           <pre class="gca-log">${esc(lines.join('\n'))}</pre></details>` : ''}</div>`;
       const btn = box.querySelector('#gca-test');
@@ -102,11 +120,16 @@ register({
         s.gcaTesting = true; btn.textContent = 'Stop test';
         box.querySelector('#gca-ports').hidden = false;
         box.querySelector('#gca-result').innerHTML = status('info', 'Reading the adapter for 15 seconds: press buttons on each controller…');
-        try {
-          const r = await call('pads.gca_test', { seconds: 15 }, { timeout: 30000 });
-          if (active) box.querySelector('#gca-result').innerHTML = status(r.ok ? 'ok' : 'bad', r.ok ? r.summary : r.error);
-        } catch (e) { if (active) box.querySelector('#gca-result').innerHTML = status('bad', errorText(e)); }
-        finally { s.gcaTesting = false; if (active && box.querySelector('#gca-test')) box.querySelector('#gca-test').textContent = 'Test adapter'; }
+        let r;
+        try { r = await call('pads.gca_test', { seconds: 15 }, { timeout: 30000 }); }
+        catch (e) { r = { ok: false, error: errorText(e) }; }
+        s.gcaTesting = false;
+        if (!active) return;
+        await load();                                   // the ports come back as controllers once the test let go of the adapter
+        if (!active) return;
+        renderAll();
+        const out = root.querySelector('#gca-result');
+        if (out) out.innerHTML = status(r.ok ? 'ok' : 'bad', r.ok ? r.summary : r.error);
       };
     };
     const offGca = on('gca', (m) => {
@@ -179,7 +202,7 @@ register({
       const kb = !d;
       let label;
       if (kb) label = s.keyboard[control] ?? s.settings.keyboard_bindings[control] ?? 'none';
-      else { const v = devVal(d.guid, 'map.' + control.toLowerCase()); label = v ? sourceName(v, d.kind) : sourceName(defaultSource(control, devVal(d.guid, 'layout') || 'auto', d.kind, d.gamepad === false), d.kind); }
+      else { const v = devVal(d.guid, 'map.' + control.toLowerCase()); label = v ? sourceName(v, d) : sourceName(defaultSource(control, devVal(d.guid, 'layout') || 'auto', d, d.gamepad === false), d); }
       const listening = s.listen === control;
       return `<div class="rj-row ${listening ? 'listening' : ''}" title="${esc(action)}"><span class="rj-key">${esc(GLYPH[control] || control)}</span>
         <button class="bind" data-bind="${control}" aria-label="${esc(listening ? 'Cancel binding ' + control : 'Change ' + action + ' (' + control + '), currently ' + label)}">${listening ? (kb ? 'Press a key… (Esc)' : 'Press a button… (Esc)') : esc(label)}</button></div>`;
@@ -251,10 +274,10 @@ register({
       const now = paintController(root, m.connected === false ? {} : m, devVal(d.guid, 'deadzone') ?? 0.1, devVal(d.guid, 'trigger_threshold') ?? 0.33);
       root.querySelectorAll('[data-bind]').forEach((b) => {
         const control = b.dataset.bind;
-        const binding = devVal(d.guid, 'map.' + control.toLowerCase()) ?? defaultSource(control, devVal(d.guid, 'layout') || 'auto', d.kind, d.gamepad === false);
+        const binding = devVal(d.guid, 'map.' + control.toLowerCase()) ?? defaultSource(control, devVal(d.guid, 'layout') || 'auto', d, d.gamepad === false);
         b.closest('.rj-row').classList.toggle('input-active', bindingPressed(binding, now));
       });
-      const pr = root.querySelector('#pressed'); if (pr) pr.innerHTML = now.length ? now.map((b) => `<span class="pressed">${esc(sourceName(b, d.kind))}</span>`).join('') : '<span class="small faint">Press a button to test</span>';
+      const pr = root.querySelector('#pressed'); if (pr) pr.innerHTML = now.length ? now.map((b) => `<span class="pressed">${esc(sourceName(b, d))}</span>`).join('') : '<span class="small faint">Press a button to test</span>';
       return now;
     }
     const keys = new Set();
@@ -322,7 +345,7 @@ register({
         if (d) delete s.pending.devices[d.guid]; else s.keyboard = {}; cancelListening(); await load(); renderAll(); toast('Back to the defaults.', 'ok');
       } catch (e) { toast(errorText(e), 'bad'); }
     };
-    this.cleanup = () => { active = false; offPad(); offGca(); if (s.gcaTesting) call('pads.gca_stop').catch(() => {}); document.removeEventListener('keydown', keydown, true); document.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); cancelListening(); call('pads.watch', { guid: null }).catch(() => {}); if (dirty()) toast('Controller changes were not saved.', 'warn'); };
+    this.cleanup = () => { active = false; offPad(); offGca(); if (s.gcaTesting) call('pads.gca_stop').catch(() => {}); document.removeEventListener('keydown', keydown, true); document.removeEventListener('keyup', keyup); window.removeEventListener('blur', blur); cancelListening(); call('pads.watch', { guid: null }).catch(() => {}); call('pads.gca_live', { on: false }).catch(() => {}); if (dirty()) toast('Controller changes were not saved.', 'warn'); };
     const renderAll = () => { renderTabs(); renderAdapters(); renderDevRow(); renderBody(); updateDirty(); };
     renderAll();
   },

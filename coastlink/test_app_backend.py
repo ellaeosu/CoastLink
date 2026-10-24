@@ -388,6 +388,16 @@ class GameCubeDiagnosticsTests(unittest.TestCase):
         self.assertIsNone(pads.parse_gca_report(b"\x22" + bytes(36)))
         self.assertIsNone(pads.parse_gca_report(b"\x21"))
 
+    def test_stick_and_trigger_math_matches_the_game(self):
+        import pads
+        self.assertEqual(pads.gca_stick(128, 128, False), 0)
+        self.assertEqual(pads.gca_stick(128 + 88, 128, False), 32767)            # full deflection at 88 counts (nnpad_gca.c)
+        self.assertEqual(pads.gca_stick(255, 128, False), 32767)                 # clamped
+        self.assertEqual(pads.gca_stick(128 + 44, 128, True), -16383)            # y inverted
+        self.assertEqual(pads.gca_trigger(30, 30), -32768)
+        self.assertEqual(pads.gca_trigger(255, 30), 32767)
+        self.assertEqual(pads.ctypes.sizeof(pads.VirtualJoystickDesc), 136)      # SDL_VirtualJoystickDesc of SDL 3.4 on 64-bit Windows
+
     def test_models_from_type_and_usb_ids(self):
         import pads
         self.assertEqual(pads.model_key(3, 0x045E, 0x0B12, "Xbox Series X Controller"), "xboxseries")

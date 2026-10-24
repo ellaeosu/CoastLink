@@ -1,3 +1,11 @@
+# 0.6.5
+
+- GameCube adapter in Wii U mode (WinUSB): its ports now show in Controllers as "GameCube Controller (port N)"
+  with the GameCube picture, live presses, bindings and a rumble test. CoastLink reads the adapter while the screen
+  is open, presents each port exactly as the game does (same identity, so bindings carry over into the game), and
+  lets go of the adapter when you leave the screen or start the game. Button names follow the adapter: Z, L / R
+  click, analog L / R, Start; Z works as ZR by default, as in the game.
+
 # 0.6.4
 
 - Controllers is laid out like Ryujinx's input settings (player, profile, device and type on top; ZL/L/minus,

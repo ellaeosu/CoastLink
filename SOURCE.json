@@ -1,6 +1,6 @@
 {
   "product": "CoastLink",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "runtime_commit": "169b467a653ab239faa7310e990f369442cbae14+coastlink-rb5",
   "upstream": "https://github.com/Denkishi/ssbu-recomp",
   "upstream_commit": "8532593a91f588800f7db84e5b13375e1393c23a",
@@ -17,6 +17,7 @@
     "0.6.1: adaptive controller preview without controller navigation, settings persistence repairs, signed offline updates and bundled release-feed support",
     "0.6.2: the live controller preview draws the connected model (Xbox, PlayStation, Switch, Joy-Con, GameCube); generated menu sounds with an Audio setting",
     "0.6.3: Import save (a JKSV backup zip, folder or system_data.bin the player has) with a backup that can be put back",
-    "0.6.4: Ryujinx-style Controllers screen with drawings of each real controller; fullscreen option; GameCube adapter test and the game's controller report"
+    "0.6.4: Ryujinx-style Controllers screen with drawings of each real controller; fullscreen option; GameCube adapter test and the game's controller report",
+    "0.6.5: a GameCube adapter in Wii U mode shows its ports as controllers in Controllers (preview, bindings, rumble test), with the game's identities"
   ]
 }

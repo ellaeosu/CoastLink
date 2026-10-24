@@ -6,8 +6,8 @@
 import { esc } from './ui.js';
 
 let clipIds = 0;
-const part = (src, body, { x = 0, y = 0, rot = 0, label = '', cls = '' } = {}) =>
-  `<g class="art-part ${cls}" data-source="${src}" transform="translate(${x} ${y})${rot ? ` rotate(${rot})` : ''}">${body}${
+const part = (src, body, { x = 0, y = 0, rot = 0, label = '', cls = '', alt = '' } = {}) =>
+  `<g class="art-part ${cls}" data-source="${src}"${alt ? ` data-alt="${alt}"` : ''} transform="translate(${x} ${y})${rot ? ` rotate(${rot})` : ''}">${body}${
     label ? `<text class="art-label"${rot ? ` transform="rotate(${-rot})"` : ''}>${esc(label)}</text>` : ''}</g>`;
 const oct = (r) => Array.from({ length: 8 }, (_, i) => { const a = Math.PI / 8 + i * Math.PI / 4; return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`; }).join(' ');
 
@@ -134,12 +134,13 @@ function joycons(m) {
 const GC_PARTS = ['M63.2 113.8C63.2 61.8 125.6 40 240 36.8C354.4 40 416.8 61.8 416.8 113.8L416.8 152.8L63.2 152.8Z',
   'M60.6 145L63.2 269.8Q65.8 303.6 94.4 302Q120.4 301 123 269.8L135 190Z', 'M419.4 145L416.8 269.8Q414.2 303.6 385.6 302Q359.6 301 357 269.8L345 190Z'];
 const GC_LOBES = [[138.6, 129.4, 78], [341.4, 116.4, 78], [177.6, 212.6, 52], [302.4, 212.6, 52]];
-function gamecube() {
+function gamecube(winusb) {
+  // PC mode (SDL's layout): Z = right shoulder. Wii U mode (nnpad_gca.c): Z = misc2, the full L / R clicks = the shoulders.
   const shapes = (cls) => GC_PARTS.map((d) => `<path class="${cls}" d="${d}"/>`).join('') + GC_LOBES.map(([x, y, r]) => `<circle class="${cls}" cx="${x}" cy="${y}" r="${r}"/>`).join('');
-  const tab = (src, label, x) => part(src, '<path class="art-trigger" d="M-24 18V-6Q-24 -16 -13 -16H13Q24 -16 24 -6V18Z"/>', { x, y: 40, label, cls: 'art-shoulder' });
-  return `${tab('lefttrigger', 'L', 82)}${tab('righttrigger', 'R', 398)}
+  const tab = (src, label, x, alt) => part(src, '<path class="art-trigger" d="M-24 18V-6Q-24 -16 -13 -16H13Q24 -16 24 -6V18Z"/>', { x, y: 40, label, cls: 'art-shoulder', alt });
+  return `${tab('lefttrigger', 'L', 82, winusb ? 'leftshoulder' : '')}${tab('righttrigger', 'R', 398, winusb ? 'rightshoulder' : '')}
     ${shapes('art-outline-u')}${shapes('art-body')}
-    ${part('rightshoulder', '<path class="art-bumper" d="M-30 -6Q2 -17 30 9L25 16Q0 -4 -27 1Z"/>', { x: 352, y: 56, label: 'Z', cls: 'art-shoulder art-gc-z' })}
+    ${part(winusb ? 'misc2' : 'rightshoulder', '<path class="art-bumper" d="M-30 -6Q2 -17 30 9L25 16Q0 -4 -27 1Z"/>', { x: 352, y: 56, label: 'Z', cls: 'art-shoulder art-gc-z' })}
     <circle class="art-contour" cx="138.6" cy="129.4" r="54"/><circle class="art-contour" cx="302.4" cy="212.6" r="32"/><circle class="art-contour" cx="177.6" cy="212.6" r="34"/>
     ${stick('left', 138.6, 129.4, { base: 34, cap: 21, gate: true })}${dpadCross(177.6, 212.6, { arm: 23, w: 15 })}
     ${stick('right', 302.4, 212.6, { base: 23, cap: 15, gate: true, label: 'C', cls: 'art-gc-c' })}
@@ -149,9 +150,9 @@ function gamecube() {
     ${small('start', 240, 129.4, circ(8.5))}`;
 }
 
-/** { viewBox, svg } for a model key from controller_view.js */
-export function padArt(model) {
-  if (model === 'gamecube') return { viewBox: '0 0 480 318', svg: gamecube() };
+/** { viewBox, svg } for a model key from controller_view.js; winusb: a GameCube adapter port in Wii U mode */
+export function padArt(model, winusb = false) {
+  if (model === 'gamecube') return { viewBox: '0 0 480 318', svg: gamecube(winusb) };
   if (model.startsWith('ps')) return { viewBox: '0 0 640 440', svg: playstation(model) };
   if (model === 'switchpro') return { viewBox: '0 0 640 440', svg: switchPro() };
   if (model.startsWith('joycon')) return { viewBox: model === 'joyconpair' ? '130 0 380 412' : '190 0 260 412', svg: joycons(model) };
